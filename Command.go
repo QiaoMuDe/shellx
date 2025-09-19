@@ -49,6 +49,9 @@ func (c *Command) Opts() *ExecuteOptions  { return c.options }
 //
 // 验证规则:
 // 1. 命令必须通过name或raw至少一种方式设置
+// 2. 如果设置了timeout，必须为正值
+// 3. 如果设置了context，不能为nil
+// 4. 环境变量的键不能为空
 //
 // 返回:
 //   - error: 如果验证失败，返回ValidationError；如果验证通过，返回nil
@@ -58,6 +61,32 @@ func (c *Command) Validate() error {
 		return &ValidationError{
 			Field:   "command",
 			Message: "command must be set either by name or raw string",
+		}
+	}
+
+	// 验证超时设置
+	if c.timeout < 0 {
+		return &ValidationError{
+			Field:   "timeout",
+			Message: "timeout must be a non-negative value",
+		}
+	}
+
+	// 验证上下文
+	if c.context != nil && c.context.Err() != nil {
+		return &ValidationError{
+			Field:   "context",
+			Message: "context is already canceled or timeout: " + c.context.Err().Error(),
+		}
+	}
+
+	// 验证环境变量
+	for k := range c.env {
+		if k == "" {
+			return &ValidationError{
+				Field:   "env",
+				Message: "environment variable key cannot be empty",
+			}
 		}
 	}
 
