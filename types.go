@@ -28,9 +28,3 @@ func (s ShellType) String() string {
 		return "unknown"
 	}
 }
-
-// ExecuteOptions 执行选项配置
-type ExecuteOptions struct {
-	Shell   ShellType // 指定shell类型
-	Capture bool      // 是否捕获输出到Result
-}

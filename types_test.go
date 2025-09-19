@@ -69,20 +69,6 @@ func TestBuilder(t *testing.T) {
 	}
 }
 
-func TestExecuteOptions(t *testing.T) {
-	opts := &ExecuteOptions{
-		Shell:   ShellBash,
-		Capture: true,
-	}
-
-	if opts.Shell != ShellBash {
-		t.Errorf("Expected ShellBash, got %v", opts.Shell)
-	}
-	if !opts.Capture {
-		t.Errorf("Expected Capture to be true")
-	}
-}
-
 func TestErrors(t *testing.T) {
 	cmd := NewCmd("test").Build()
 
