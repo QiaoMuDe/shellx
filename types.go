@@ -1,5 +1,3 @@
-// Package shellx 定义了shell命令执行库的核心数据类型。
-// 本文件定义了Shell类型枚举，用于指定命令执行时使用的shell环境。
 package shellx
 
 // ShellType 定义shell类型
@@ -29,4 +27,10 @@ func (s ShellType) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// ExecuteOptions 执行选项配置
+type ExecuteOptions struct {
+	Shell   ShellType // 指定shell类型
+	Capture bool      // 是否捕获输出到Result
 }

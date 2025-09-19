@@ -92,3 +92,12 @@ func (c *Command) Validate() error {
 
 	return nil
 }
+
+// Exec 执行命令，并返回结果
+//
+// 返回:
+//   - *Result: 执行结果
+//   - error: 如果执行失败，返回错误信息
+func (c *Command) Exec() (*Result, error) {
+	return &Result{}, nil
+}
