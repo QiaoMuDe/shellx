@@ -10,10 +10,17 @@ import (
 
 // Builder 命令构建器，提供链式调用
 type Builder struct {
-	cmd *Command
+	cmd *Command // 命令对象
 }
 
 // NewCmd 创建新的命令构建器 (数组方式 - 可变参数)
+//
+// 参数：
+//   - name: 命令名
+//   - args: 命令参数列表
+//
+// 返回：
+//   - *Builder: 命令构建器对象
 func NewCmd(name string, args ...string) *Builder {
 	return &Builder{
 		cmd: &Command{
@@ -25,6 +32,12 @@ func NewCmd(name string, args ...string) *Builder {
 }
 
 // NewCmds 创建新的命令构建器 (数组方式 - 切片参数，第一个元素为命令名)
+//
+// 参数：
+//   - cmdArgs: 命令参数列表，第一个元素为命令名，后续元素为参数
+//
+// 返回：
+//   - *Builder: 命令构建器对象
 func NewCmds(cmdArgs []string) *Builder {
 	if len(cmdArgs) == 0 {
 		return &Builder{
@@ -50,6 +63,12 @@ func NewCmds(cmdArgs []string) *Builder {
 }
 
 // NewCmdString 创建新的命令构建器 (字符串方式)
+//
+// 参数：
+//   - cmdStr: 命令字符串
+//
+// 返回：
+//   - *Builder: 命令构建器对象
 func NewCmdString(cmdStr string) *Builder {
 	return &Builder{
 		cmd: &Command{
