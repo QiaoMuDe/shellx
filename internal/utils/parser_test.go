@@ -1,6 +1,6 @@
-// Package internal 提供shell命令执行库的内部工具函数。
+// Package utils 提供shell命令执行库的内部工具函数。
 // 本文件包含命令字符串解析器的完整测试用例，包括基本场景、边界情况和模糊测试。
-package internal
+package utils
 
 import (
 	"reflect"

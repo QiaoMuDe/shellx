@@ -6,6 +6,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"gitee.com/MM-Q/shellx/internal/utils"
 )
 
 // Builder 命令构建器，提供链式调用
@@ -47,8 +49,8 @@ func NewCmds(cmdArgs []string) *Builder {
 		}
 	}
 
-	name := cmdArgs[0]
-	args := []string{}
+	name := cmdArgs[0] // 第一个元素为命令名
+	args := []string{} // 后续元素为参数
 	if len(cmdArgs) > 1 {
 		args = cmdArgs[1:]
 	}
@@ -70,10 +72,26 @@ func NewCmds(cmdArgs []string) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func NewCmdString(cmdStr string) *Builder {
+	// 使用命令解析器解析命令字符串
+	cmdArgs := utils.ParseCmd(cmdStr)
+
+	var name string
+	var args []string
+
+	// 提取命令名和参数
+	if len(cmdArgs) > 0 {
+		name = cmdArgs[0]
+		if len(cmdArgs) > 1 {
+			args = cmdArgs[1:]
+		}
+	}
+
 	return &Builder{
 		cmd: &Command{
-			raw: cmdStr,
-			env: make(map[string]string),
+			name: name,
+			args: args,
+			raw:  cmdStr,
+			env:  make(map[string]string),
 		},
 	}
 }

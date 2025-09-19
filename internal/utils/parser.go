@@ -1,6 +1,6 @@
-// Package internal 提供shell命令执行库的内部工具函数。
+// Package utils 提供shell命令执行库的内部工具函数。
 // 本文件实现了命令字符串解析功能，支持引号处理和参数分割。
-package internal
+package utils
 
 import (
 	"strings"
