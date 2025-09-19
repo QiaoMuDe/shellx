@@ -44,3 +44,22 @@ func (c *Command) ErrOutput() io.Writer   { return c.stderr }
 func (c *Command) Timeout() time.Duration { return c.timeout }
 func (c *Command) Ctx() context.Context   { return c.context }
 func (c *Command) Opts() *ExecuteOptions  { return c.options }
+
+// Validate 验证命令参数是否有效
+//
+// 验证规则:
+// 1. 命令必须通过name或raw至少一种方式设置
+//
+// 返回:
+//   - error: 如果验证失败，返回ValidationError；如果验证通过，返回nil
+func (c *Command) Validate() error {
+	// 检查是否有命令设置
+	if c.name == "" && c.raw == "" {
+		return &ValidationError{
+			Field:   "command",
+			Message: "command must be set either by name or raw string",
+		}
+	}
+
+	return nil
+}

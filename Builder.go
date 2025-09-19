@@ -145,6 +145,26 @@ func (b *Builder) WithOptions(opts *ExecuteOptions) *Builder {
 	return b
 }
 
+// Build 构建并返回命令对象
+//
+// 返回:
+//   - *Command: 构建的命令对象
+//
+// 注意:
+//   - 此方法不会验证命令的有效性，如需验证，请在获取命令后调用其Validate()方法
 func (b *Builder) Build() *Command {
 	return b.cmd
+}
+
+// BuildAndValidate 构建命令对象并验证其有效性
+//
+// 返回:
+//   - *Command: 构建的命令对象
+//   - error: 如果验证失败，返回ValidationError；如果验证通过，返回nil
+func (b *Builder) BuildAndValidate() (*Command, error) {
+	cmd := b.cmd
+	if err := cmd.Validate(); err != nil {
+		return cmd, err
+	}
+	return cmd, nil
 }

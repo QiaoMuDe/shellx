@@ -11,8 +11,8 @@ import (
 type Result struct {
 	// 基本执行信息
 	cmd      *Command // 执行的命令引用
-	exitCode int  // 退出码
-	success  bool // 是否执行成功
+	exitCode int      // 退出码
+	success  bool     // 是否执行成功
 
 	// 输出信息
 	stdout []byte // 标准输出内容

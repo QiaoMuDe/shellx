@@ -6,8 +6,8 @@ import "fmt"
 
 // ValidationError 验证错误
 type ValidationError struct {
-	Field   string
-	Message string
+	Field   string // 字段名
+	Message string // 错误信息
 }
 
 func (e *ValidationError) Error() string {
