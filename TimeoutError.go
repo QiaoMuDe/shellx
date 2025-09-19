@@ -9,7 +9,7 @@ import (
 
 // TimeoutError 超时错误
 type TimeoutError struct {
-	Cmd     *Cmd
+	Cmd     *Command
 	Timeout time.Duration
 }
 

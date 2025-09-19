@@ -10,13 +10,13 @@ import (
 
 // Builder 命令构建器，提供链式调用
 type Builder struct {
-	cmd *Cmd
+	cmd *Command
 }
 
 // NewCmd 创建新的命令构建器 (数组方式 - 可变参数)
 func NewCmd(name string, args ...string) *Builder {
 	return &Builder{
-		cmd: &Cmd{
+		cmd: &Command{
 			name: name,
 			args: args,
 			env:  make(map[string]string),
@@ -28,7 +28,7 @@ func NewCmd(name string, args ...string) *Builder {
 func NewCmds(cmdArgs []string) *Builder {
 	if len(cmdArgs) == 0 {
 		return &Builder{
-			cmd: &Cmd{
+			cmd: &Command{
 				env: make(map[string]string),
 			},
 		}
@@ -41,7 +41,7 @@ func NewCmds(cmdArgs []string) *Builder {
 	}
 
 	return &Builder{
-		cmd: &Cmd{
+		cmd: &Command{
 			name: name,
 			args: args,
 			env:  make(map[string]string),
@@ -52,7 +52,7 @@ func NewCmds(cmdArgs []string) *Builder {
 // NewCmdString 创建新的命令构建器 (字符串方式)
 func NewCmdString(cmdStr string) *Builder {
 	return &Builder{
-		cmd: &Cmd{
+		cmd: &Command{
 			raw: cmdStr,
 			env: make(map[string]string),
 		},
@@ -108,6 +108,6 @@ func (b *Builder) WithOptions(opts *ExecuteOptions) *Builder {
 	return b
 }
 
-func (b *Builder) Build() *Cmd {
+func (b *Builder) Build() *Command {
 	return b.cmd
 }

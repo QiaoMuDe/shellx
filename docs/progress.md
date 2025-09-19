@@ -29,7 +29,7 @@ ShellX 是一个功能完善、易于使用的Go语言shell命令执行库，提
 #### 2. 核心类型定义 (2025/9/19)
 - [x] **ShellType**: Shell类型枚举定义 (`types/ShellType.go`)
 - [x] **ExecuteOptions**: 执行选项配置 (`types/ExecuteOptions.go`)
-- [x] **Cmd**: 命令结构体，支持数组和字符串方式 (`types/Cmd.go`)
+- [x] **Command**: 命令结构体，支持数组和字符串方式 (`Command.go`)
 - [x] **Result**: 执行结果结构体 (`types/Result.go`)
 - [x] **Executor**: 执行器接口定义 (`types/Executor.go`)
 - [x] **Builder**: 命令构建器，提供链式调用 (`types/Builder.go`)
@@ -63,14 +63,14 @@ ShellX 是一个功能完善、易于使用的Go语言shell命令执行库，提
 
 #### 1. 核心执行器实现
 - [ ] **基础执行器**: 实现Executor接口的基本功能
-- [ ] **同步执行**: `Exec(cmd *Cmd) (*Result, error)`
+- [ ] **同步执行**: `Exec(cmd *Command) (*Result, error)`
 - [ ] **进程管理**: 进程启动、监控、终止
 - [ ] **输入输出处理**: 标准输入输出重定向
 - [ ] **环境变量**: 环境变量设置和继承
 - [ ] **工作目录**: 工作目录切换支持
 
 #### 2. 高级功能
-- [ ] **异步执行**: `ExecAsync(cmd *Cmd) (<-chan *Result, error)`
+- [ ] **异步执行**: `ExecAsync(cmd *Command) (<-chan *Result, error)`
 - [ ] **命令管道**: `ExecPipe` 和 `ExecPipes` 实现
 - [ ] **超时控制**: 基于context的超时处理
 - [ ] **信号处理**: 优雅的进程终止

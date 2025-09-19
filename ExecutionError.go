@@ -9,7 +9,7 @@ import (
 
 // ExecutionError 执行错误类型
 type ExecutionError struct {
-	Cmd       *Cmd
+	Cmd       *Command
 	ExitCode  int
 	Stderr    string
 	Err       error

@@ -6,11 +6,11 @@
 
 ## 1. 核心数据模型设计
 
-### 1.1 命令结构体 (Cmd)
+### 1.1 命令结构体 (Command)
 
 ```go
-// Cmd 表示一个待执行的shell命令
-type Cmd struct {
+// Command 表示一个待执行的shell命令
+type Command struct {
     // 基本命令信息 - 支持两种方式
     name string   // 命令名称，如 "ls", "git", "docker" (当使用数组方式时)
     args []string // 命令参数列表 (当使用数组方式时)
@@ -71,17 +71,17 @@ type ExecuteOptions struct {
 }
 
 // 提供公共访问方法
-func (c *Cmd) Name() string { return c.name }
-func (c *Cmd) Args() []string { return c.args }
-func (c *Cmd) Raw() string { return c.raw }
-func (c *Cmd) Dir() string { return c.workDir }
-func (c *Cmd) Env() map[string]string { return c.env }
-func (c *Cmd) Input() io.Reader { return c.stdin }
-func (c *Cmd) Output() io.Writer { return c.stdout }
-func (c *Cmd) ErrOutput() io.Writer { return c.stderr }
-func (c *Cmd) Timeout() time.Duration { return c.timeout }
-func (c *Cmd) Ctx() context.Context { return c.context }
-func (c *Cmd) Opts() *ExecuteOptions { return c.options }
+func (c *Command) Name() string { return c.name }
+func (c *Command) Args() []string { return c.args }
+func (c *Command) Raw() string { return c.raw }
+func (c *Command) Dir() string { return c.workDir }
+func (c *Command) Env() map[string]string { return c.env }
+func (c *Command) Input() io.Reader { return c.stdin }
+func (c *Command) Output() io.Writer { return c.stdout }
+func (c *Command) ErrOutput() io.Writer { return c.stderr }
+func (c *Command) Timeout() time.Duration { return c.timeout }
+func (c *Command) Ctx() context.Context { return c.context }
+func (c *Command) Opts() *ExecuteOptions { return c.options }
 ```
 
 **设计说明:**

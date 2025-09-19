@@ -10,7 +10,7 @@ import (
 // Result 表示命令执行的结果
 type Result struct {
 	// 基本执行信息
-	cmd      *Cmd // 执行的命令引用
+	cmd      *Command // 执行的命令引用
 	exitCode int  // 退出码
 	success  bool // 是否执行成功
 
@@ -36,7 +36,7 @@ type Result struct {
 }
 
 // 提供公共访问方法
-func (r *Result) Cmd() *Cmd                    { return r.cmd }
+func (r *Result) Cmd() *Command                { return r.cmd }
 func (r *Result) Code() int                    { return r.exitCode }
 func (r *Result) Success() bool                { return r.success }
 func (r *Result) StdOut() []byte               { return r.stdout }

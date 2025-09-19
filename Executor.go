@@ -5,16 +5,16 @@ package shellx
 // Executor 命令执行器接口
 type Executor interface {
 	// Exec 执行单个命令
-	Exec(cmd *Cmd) (*Result, error)
+	Exec(cmd *Command) (*Result, error)
 
 	// ExecAsync 异步执行命令
-	ExecAsync(cmd *Cmd) (<-chan *Result, error)
+	ExecAsync(cmd *Command) (<-chan *Result, error)
 
 	// ExecPipe 执行命令管道 (可变参数方式)
-	ExecPipe(commands ...*Cmd) (*Result, error)
+	ExecPipe(commands ...*Command) (*Result, error)
 
 	// ExecPipes 执行命令管道 (切片方式)
-	ExecPipes(commands []*Cmd) (*Result, error)
+	ExecPipes(commands []*Command) (*Result, error)
 
 	// Kill 终止正在执行的命令
 	Kill(pid int) error
