@@ -50,7 +50,7 @@ ShellX 是一个功能完善、易于使用的Go语言shell命令执行库，提
 ### 🔄 进行中功能
 
 #### 1. 架构优化
-- [ ] **包结构调整**: 考虑将types包合并到主包，提升用户体验
+- [x] **包结构调整**: 将types包合并到主包，提升用户体验 (2025/9/20)
 - [ ] **API优化**: 基于Go生态系统最佳实践优化API设计
 
 #### 2. 测试完善
@@ -97,9 +97,8 @@ ShellX 是一个功能完善、易于使用的Go语言shell命令执行库，提
 ## 技术债务和优化项
 
 ### 当前技术债务
-1. **包结构**: types包是否应该合并到主包需要决策
-2. **错误处理**: 需要更详细的错误分类和处理策略
-3. **文档**: 需要更多的使用示例和最佳实践文档
+1. **错误处理**: 需要更详细的错误分类和处理策略
+2. **文档**: 需要更多的使用示例和最佳实践文档
 
 ### 计划优化
 1. **API一致性**: 确保所有API命名和行为一致
@@ -134,22 +133,21 @@ shellx/
 ├── docs/
 │   ├── design.md           ✅ 设计文档
 │   └── progress.md         ✅ 进度文档 (本文件)
-├── types/                  ✅ 核心类型定义
-│   ├── Builder.go          ✅ 命令构建器
-│   ├── Cmd.go             ✅ 命令结构体
-│   ├── ExecuteOptions.go   ✅ 执行选项
-│   ├── ExecutionError.go   ✅ 执行错误
-│   ├── Executor.go         ✅ 执行器接口
-│   ├── Result.go          ✅ 执行结果
-│   ├── ShellType.go       ✅ Shell类型
-│   ├── TimeoutError.go    ✅ 超时错误
-│   ├── ValidationError.go  ✅ 验证错误
-│   └── types_test.go      ✅ 类型测试
+├── Builder.go              ✅ 命令构建器
+├── Cmd.go                  ✅ 命令结构体
+├── ExecuteOptions.go       ✅ 执行选项
+├── ExecutionError.go       ✅ 执行错误
+├── Executor.go             ✅ 执行器接口
+├── Result.go               ✅ 执行结果
+├── ShellType.go            ✅ Shell类型
+├── TimeoutError.go         ✅ 超时错误
+├── ValidationError.go      ✅ 验证错误
+├── types_test.go           ✅ 类型测试
 ├── internal/
 │   └── utils/
 │       ├── parser.go       ✅ 命令解析器
 │       └── parser_test.go  ✅ 解析器测试
-└── shellx.go              ✅ 主包文件
+└── shellx.go               ✅ 主包文件
 ```
 
 ## 测试覆盖情况
