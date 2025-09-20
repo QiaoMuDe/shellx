@@ -1,5 +1,11 @@
 // Package shellx 定义了shell命令执行库的核心数据类型。
 // 本文件定义了Builder结构体和相关构造函数，提供链式调用API来构建命令对象。
+//
+// Builder是命令构建器的核心实现，支持：
+//   - 三种命令创建方式：NewCmd、NewCmds、NewCmdStr
+//   - 链式调用设置：工作目录、环境变量、超时、上下文、标准输入输出、Shell类型
+//   - 并发安全的读写操作
+//   - 灵活的命令配置和构建
 package shellx
 
 import (

@@ -1,3 +1,18 @@
+// Package shellx 定义了shell命令执行库的核心数据类型。
+// 本文件定义了ShellType枚举和Result结构体，提供了shell类型管理和执行结果封装。
+//
+// 主要类型：
+//   - ShellType: Shell类型枚举，支持sh、bash、cmd、powershell等多种shell
+//   - Result: 命令执行结果结构体，包含退出码、输出、时间、错误等完整信息
+//
+// ShellType支持的shell类型：
+//   - ShellSh: Unix/Linux sh shell
+//   - ShellBash: Bash shell
+//   - ShellCmd: Windows Command Prompt
+//   - ShellPowerShell: Windows PowerShell
+//   - ShellPwsh: PowerShell Core (跨平台)
+//   - ShellNone: 直接执行命令，不使用shell
+//   - ShellDefault: 根据操作系统自动选择默认shell
 package shellx
 
 import (

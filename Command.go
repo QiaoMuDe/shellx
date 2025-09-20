@@ -1,3 +1,12 @@
+// Package shellx 定义了shell命令执行库的核心数据类型。
+// 本文件定义了Command结构体，封装了exec.Cmd并提供了丰富的命令执行功能。
+//
+// Command是命令执行对象的核心实现，支持：
+//   - 同步执行：Exec、ExecOutput、ExecStdout、ExecResult
+//   - 异步执行：ExecAsync、Wait
+//   - 进程控制：Kill、Signal、IsRunning、GetPID
+//   - 执行状态管理：IsExecuted（确保命令只执行一次）
+//   - 完整的执行结果：Result对象包含输出、错误、时间、退出码等信息
 package shellx
 
 import (

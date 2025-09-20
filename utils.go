@@ -1,3 +1,24 @@
+// Package shellx 定义了shell命令执行库的核心数据类型。
+// 本文件定义了工具函数，提供命令字符串处理和解析功能。
+//
+// 主要功能：
+//   - getCmdStr: 从Builder对象获取完整的命令字符串
+//   - ParseCmd: 智能解析命令字符串，支持复杂的引号处理
+//   - FindCmd: 查找系统中的命令路径
+//
+// ParseCmd函数特性：
+//   - 支持单引号、双引号、反引号三种引号类型
+//   - 正确处理引号内的空格和特殊字符
+//   - 支持引号嵌套（不同类型的引号可以嵌套）
+//   - 自动检测未闭合的引号并返回空结果
+//   - 处理多个连续空格和制表符
+//   - 支持复杂的命令行参数解析
+//
+// 解析示例：
+//   - `ls -la` → ["ls", "-la"]
+//   - `echo "hello world"` → ["echo", "hello world"]
+//   - `git commit -m "fix: update 'config' file"` → ["git", "commit", "-m", "fix: update 'config' file"]
+//   - `find . -name "*.go" -exec grep "pattern" {} \;` → ["find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", "\\;"]
 package shellx
 
 import (
