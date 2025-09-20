@@ -2,6 +2,7 @@ package shellx
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -91,4 +92,16 @@ func ParseCmd(cmdStr string) []string {
 	}
 
 	return result
+}
+
+// FindCmd 查找命令
+//
+// 参数:
+//   - name: 命令名称
+//
+// 返回:
+//   - string: 命令路径
+//   - error: 错误信息
+func FindCmd(name string) (string, error) {
+	return exec.LookPath(name)
 }

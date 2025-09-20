@@ -35,6 +35,10 @@ type Builder struct {
 // 返回：
 //   - *Builder: 命令构建器对象
 func NewCmd(name string, args ...string) *Builder {
+	if name == "" {
+		panic("name cannot be empty")
+	}
+
 	return &Builder{
 		path:      name,         // 命令路径
 		args:      args,         // 命令参数

@@ -1,7 +1,6 @@
 package shellx
 
 import (
-	"os"
 	"runtime"
 	"time"
 )
@@ -86,7 +85,7 @@ func (s ShellType) shellFlags() string {
 // Result 表示命令执行的结果
 type Result struct {
 	// 基本执行信息
-	exitCode int  // 退出码
+	exitCode int  // 退出码：0=成功，非0=失败
 	success  bool // 是否执行成功
 
 	// 输出信息
@@ -96,10 +95,6 @@ type Result struct {
 	startTime time.Time     // 开始执行时间
 	endTime   time.Time     // 结束执行时间
 	duration  time.Duration // 执行耗时
-
-	// 进程信息
-	pid          int              // 进程ID
-	processState *os.ProcessState // 进程状态
 
 	// 错误信息
 	err error // 执行过程中的错误
@@ -112,6 +107,4 @@ func (r *Result) Output() []byte          { return r.output }
 func (r *Result) Start() time.Time        { return r.startTime }
 func (r *Result) End() time.Time          { return r.endTime }
 func (r *Result) Duration() time.Duration { return r.duration }
-func (r *Result) PID() int                { return r.pid }
-func (r *Result) State() *os.ProcessState { return r.processState }
 func (r *Result) Error() error            { return r.err }
