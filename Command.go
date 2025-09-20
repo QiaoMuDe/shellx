@@ -196,3 +196,55 @@ func (c *Command) GetPID() int {
 func (c *Command) IsExecuted() bool {
 	return c.execOne.Load()
 }
+
+// ########################################
+// 便捷函数
+// ########################################
+
+// ExecStr 执行命令(阻塞)
+//
+// 参数:
+//   - cmdStr: 命令字符串
+//
+// 返回:
+//   - error: 错误信息
+func ExecStr(cmdStr string) error {
+	return NewCmdStr(cmdStr).Build().Exec()
+}
+
+// Exec 执行命令(阻塞)
+//
+// 函数:
+//   - name: 命令名
+//   - args: 命令参数
+//
+// 返回:
+//   - error: 错误信息
+func Exec(name string, args ...string) error {
+	return NewCmd(name, args...).Build().Exec()
+}
+
+// ExecOutputStr 执行命令并返回合并后的输出(阻塞)
+//
+// 参数:
+//   - cmdStr: 命令字符串
+//
+// 返回:
+//   - []byte: 输出
+//   - error: 错误信息
+func ExecOutputStr(cmdStr string) ([]byte, error) {
+	return NewCmdStr(cmdStr).Build().ExecOutput()
+}
+
+// ExecOutput 执行命令并返回合并后的输出(阻塞)
+//
+// 函数:
+//   - name: 命令名
+//   - args: 命令参数
+//
+// 返回:
+//   - []byte: 输出
+//   - error: 错误信息
+func ExecOutput(name string, args ...string) ([]byte, error) {
+	return NewCmd(name, args...).Build().ExecOutput()
+}
