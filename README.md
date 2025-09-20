@@ -26,6 +26,7 @@ ShellX 是一个基于 Go 标准库 `os/exec` 包封装的高级命令执行库�
 | 特性 | 描述 |
 |------|------|
 | 🔧 **多种创建方式** | 支持 `NewCmd`(可变参数)、`NewCmds`(切片)、`NewCmdStr`(字符串解析) 三种命令创建方式 |
+| ⚡ **便捷函数** | 提供 `Exec`、`ExecStr`、`ExecOutput`、`ExecOutputStr` 等便捷函数，无需手动构建对象 |
 | ⛓️ **链式调用 API** | 流畅的方法链，支持工作目录、环境变量、超时等配置 |
 | 🛡️ **类型安全** | 完整的错误处理和类型安全保证 |
 | 🐚 **多 Shell 支持** | 支持 sh、bash、cmd、powershell、pwsh 等多种 shell 类型 |
@@ -84,6 +85,47 @@ func main() {
         log.Fatal(err)
     }
     fmt.Println(string(output))
+}
+```
+
+### 便捷函数用法
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    
+    "gitee.com/MM-Q/shellx"
+)
+
+func main() {
+    // 直接执行命令（可变参数方式）
+    err := shellx.Exec("echo", "Hello, World!")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 直接执行命令（字符串方式）
+    err = shellx.ExecStr("ls -la")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 执行命令并获取输出（可变参数方式）
+    output, err := shellx.ExecOutput("pwd")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Current directory: %s", output)
+    
+    // 执行命令并获取输出（字符串方式）
+    output, err = shellx.ExecOutputStr("git status --porcelain")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Git status: %s", output)
 }
 ```
 
@@ -231,6 +273,18 @@ func (b *Builder) WithStdout(stdout io.Writer) *Builder
 func (b *Builder) WithStderr(stderr io.Writer) *Builder
 func (b *Builder) WithShell(shell ShellType) *Builder
 func (b *Builder) Build() *Command
+```
+
+#### 便捷函数
+
+```go
+// 直接执行命令
+func Exec(name string, args ...string) error
+func ExecStr(cmdStr string) error
+
+// 执行命令并获取输出
+func ExecOutput(name string, args ...string) ([]byte, error)
+func ExecOutputStr(cmdStr string) ([]byte, error)
 ```
 
 #### 命令执行
