@@ -121,7 +121,12 @@ func TestCommandExecResult(t *testing.T) {
 	builder := NewCmd("echo", "test")
 	cmd := builder.Build()
 
-	result := cmd.ExecResult()
+	result, err := cmd.ExecResult()
+
+	// 验证执行成功
+	if err != nil {
+		t.Errorf("ExecResult() 执行应该成功，但返回错误: %v", err)
+	}
 
 	// 验证Result对象的基本属性
 	if result == nil {
@@ -145,23 +150,33 @@ func TestCommandExecResult(t *testing.T) {
 		t.Errorf("结束时间应该在开始时间之后")
 	}
 
+	// 验证命令执行成功
+	if !result.Success() {
+		t.Errorf("echo命令应该执行成功")
+	}
+
+	if result.Code() != 0 {
+		t.Errorf("echo命令的退出码应该为0，实际为%d", result.Code())
+	}
+
 	// 验证命令已执行
 	if !cmd.IsExecuted() {
 		t.Errorf("ExecResult() 执行后命令应该标记为已执行")
 	}
 
 	// 第二次调用应该返回错误
-	result2 := cmd.ExecResult()
-	if result2.Error() == nil {
+	result2, err2 := cmd.ExecResult()
+	if err2 == nil {
 		t.Errorf("第二次调用ExecResult()应该返回错误")
 	}
 
-	if result2.Success() {
-		t.Errorf("第二次调用ExecResult()应该标记为失败")
+	if result2 != nil {
+		t.Errorf("第二次调用ExecResult()应该返回nil的Result对象")
 	}
 
-	if result2.Code() != -1 {
-		t.Errorf("第二次调用ExecResult()的退出码应该为-1，实际为%d", result2.Code())
+	expectedMsg := "command has already been executed"
+	if !strings.Contains(err2.Error(), expectedMsg) {
+		t.Errorf("第二次调用ExecResult()错误信息应该包含'%s'，实际为'%s'", expectedMsg, err2.Error())
 	}
 }
 

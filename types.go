@@ -110,9 +110,6 @@ type Result struct {
 	startTime time.Time     // 开始执行时间
 	endTime   time.Time     // 结束执行时间
 	duration  time.Duration // 执行耗时
-
-	// 错误信息
-	err error // 执行过程中的错误
 }
 
 // 提供公共访问方法
@@ -122,4 +119,3 @@ func (r *Result) Output() []byte          { return r.output }
 func (r *Result) Start() time.Time        { return r.startTime }
 func (r *Result) End() time.Time          { return r.endTime }
 func (r *Result) Duration() time.Duration { return r.duration }
-func (r *Result) Error() error            { return r.err }

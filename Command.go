@@ -69,15 +69,23 @@ func (c *Command) ExecStdout() ([]byte, error) {
 
 // ExecResult 执行命令并返回完整的执行结果(阻塞)
 //
+// 使用示例:
+//
+//	result, err := cmd.ExecResult()
+//	if err != nil {
+//	    // 处理错误情况
+//	    log.Printf("Command failed: %v", err)
+//	    return
+//	}
+//	// 处理成功情况
+//	fmt.Println(string(result.Output()))
+//
 // 返回:
-//   - *Result: 执行结果对象
-func (c *Command) ExecResult() *Result {
+//   - *Result: 执行结果对象，包含输出、时间、退出码等信息
+//   - error: 执行过程中的错误信息
+func (c *Command) ExecResult() (*Result, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return &Result{
-			err:      fmt.Errorf("command has already been executed"),
-			success:  false,
-			exitCode: -1,
-		}
+		return nil, fmt.Errorf("command has already been executed")
 	}
 
 	// 命令执行开始时间
@@ -95,16 +103,17 @@ func (c *Command) ExecResult() *Result {
 		exitCode = -1
 	}
 
-	// 返回Result对象
-	return &Result{
+	// 创建Result对象
+	result := &Result{
 		startTime: startTime,              // 命令开始执行时间
 		endTime:   endTime,                // 命令执行结束时间
 		duration:  endTime.Sub(startTime), // 命令执行耗时
-		err:       err,                    // 命令执行错误信息
 		output:    output,                 // 命令输出
 		success:   err == nil,             // 命令执行是否成功
 		exitCode:  exitCode,               // 命令退出码
 	}
+
+	return result, err
 }
 
 // ExecAsync 异步执行命令(非阻塞)
