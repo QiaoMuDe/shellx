@@ -1,10 +1,28 @@
-// Package utils 提供shell命令执行库的内部工具函数。
-// 本文件实现了命令字符串解析功能，支持引号处理和参数分割。
-package utils
+package shellx
 
 import (
+	"fmt"
 	"strings"
 )
+
+// getCmdStr 获取命令字符串
+//
+// 参数：
+//   - b: 命令构建器对象
+//
+// 返回：
+//   - string: 命令字符串
+func getCmdStr(b *Builder) string {
+	if b == nil {
+		return ""
+	}
+
+	if b.raw != "" {
+		return b.raw
+	}
+
+	return fmt.Sprintf("%s %s", b.path, strings.Join(b.args, " "))
+}
 
 // ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
 //
