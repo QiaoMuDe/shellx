@@ -266,6 +266,10 @@ func (b *Builder) Build() *Command {
 		cmd.WaitDelay = b.timeout
 	}
 
+	// 创建包装的命令对象
+	c := &Command{cmd: cmd}
+	c.execOne.Store(false)
+
 	// 返回包装的命令对象
-	return &Command{cmd: cmd}
+	return c
 }

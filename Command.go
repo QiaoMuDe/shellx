@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
 
 // Command 命令对象
 type Command struct {
-	cmd  *exec.Cmd // 底层的 exec.Cmd 对象
-	once sync.Once // 用于确保每个命令只执行一次
+	cmd     *exec.Cmd   // 底层的 exec.Cmd 对象
+	execOne atomic.Bool // 用于确保每个命令只执行一次
 }
 
 // Cmd 获取底层的 exec.Cmd 对象
@@ -28,6 +28,9 @@ func (c *Command) Cmd() *exec.Cmd {
 // 返回:
 //   - error: 错误信息
 func (c *Command) Exec() error {
+	if !c.execOne.CompareAndSwap(false, true) {
+		return fmt.Errorf("command has already been executed")
+	}
 	return c.cmd.Run()
 }
 
@@ -37,6 +40,9 @@ func (c *Command) Exec() error {
 //   - []byte: 命令输出
 //   - error: 错误信息
 func (c *Command) ExecOutput() ([]byte, error) {
+	if !c.execOne.CompareAndSwap(false, true) {
+		return nil, fmt.Errorf("command has already been executed")
+	}
 	return c.cmd.CombinedOutput()
 }
 
@@ -46,6 +52,9 @@ func (c *Command) ExecOutput() ([]byte, error) {
 //   - []byte: 标准输出
 //   - error: 错误信息
 func (c *Command) ExecStdout() ([]byte, error) {
+	if !c.execOne.CompareAndSwap(false, true) {
+		return nil, fmt.Errorf("command has already been executed")
+	}
 	return c.cmd.Output()
 }
 
@@ -54,6 +63,14 @@ func (c *Command) ExecStdout() ([]byte, error) {
 // 返回:
 //   - *Result: 执行结果对象
 func (c *Command) ExecResult() *Result {
+	if !c.execOne.CompareAndSwap(false, true) {
+		return &Result{
+			err:      fmt.Errorf("command has already been executed"),
+			success:  false,
+			exitCode: -1,
+		}
+	}
+
 	// 命令执行开始时间
 	startTime := time.Now()
 
@@ -86,6 +103,9 @@ func (c *Command) ExecResult() *Result {
 // 返回:
 //   - error: 错误信息
 func (c *Command) ExecAsync() error {
+	if !c.execOne.CompareAndSwap(false, true) {
+		return fmt.Errorf("command has already been executed")
+	}
 	return c.cmd.Start()
 }
 
@@ -149,4 +169,12 @@ func (c *Command) GetPID() int {
 		return 0
 	}
 	return c.cmd.Process.Pid
+}
+
+// IsExecuted 检查命令是否已经执行过
+//
+// 返回:
+//   - bool: 是否已执行
+func (c *Command) IsExecuted() bool {
+	return c.execOne.Load()
 }
