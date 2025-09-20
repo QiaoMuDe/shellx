@@ -13,7 +13,7 @@ import (
 
 // Builder 命令构建器，提供链式调用
 type Builder struct {
-	shellType ShellType       // shell类型, 如果通过shell执行的话
+	shellType ShellType       // shell类型, 默认根据操作系统自动选择(windows使用cmd, 其他系统使用sh)
 	raw       string          // 原始命令字符串
 	path      string          // 命令路径
 	args      []string        // 命令参数
@@ -39,7 +39,7 @@ func NewCmd(name string, args ...string) *Builder {
 		path:      name,         // 命令路径
 		args:      args,         // 命令参数
 		env:       os.Environ(), // 默认继承父进程的环境变量
-		shellType: ShellNone,    // 默认不使用shell执行
+		shellType: ShellDefault, // 默认根据操作系统自动选择shell
 	}
 }
 
