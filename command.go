@@ -1,12 +1,12 @@
 // Package shellx 定义了shell命令执行库的核心数据类型。
-// 本文件定义了Command结构体，封装了exec.Cmd并提供了丰富的命令执行功能。
+// 本文件定义了Command结构体, 封装了exec.Cmd并提供了丰富的命令执行功能。
 //
-// Command是命令执行对象的核心实现，支持：
-//   - 同步执行：Exec、ExecOutput、ExecStdout、ExecResult
-//   - 异步执行：ExecAsync、Wait
-//   - 进程控制：Kill、Signal、IsRunning、GetPID
-//   - 执行状态管理：IsExecuted（确保命令只执行一次）
-//   - 完整的执行结果：Result对象包含输出、错误、时间、退出码等信息
+// Command是命令执行对象的核心实现, 支持:
+//   - 同步执行: Exec、ExecOutput、ExecStdout、ExecResult
+//   - 异步执行: ExecAsync、Wait
+//   - 进程控制: Kill、Signal、IsRunning、GetPID
+//   - 执行状态管理: IsExecuted（确保命令只执行一次）
+//   - 完整的执行结果: Result对象包含输出、错误、时间、退出码等信息
 package shellx
 
 import (
@@ -48,6 +48,9 @@ func (c *Command) Exec() error {
 // 返回:
 //   - []byte: 命令输出
 //   - error: 错误信息
+//
+// 注意:
+//   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
 func (c *Command) ExecOutput() ([]byte, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
 		return nil, fmt.Errorf("command has already been executed")
@@ -81,7 +84,7 @@ func (c *Command) ExecStdout() ([]byte, error) {
 //	fmt.Println(string(result.Output()))
 //
 // 返回:
-//   - *Result: 执行结果对象，包含输出、时间、退出码等信息
+//   - *Result: 执行结果对象, 包含输出、时间、退出码等信息
 //   - error: 执行过程中的错误信息
 func (c *Command) ExecResult() (*Result, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
@@ -181,7 +184,7 @@ func (c *Command) IsRunning() bool {
 // GetPID 获取进程ID
 //
 // 返回:
-//   - int: 进程ID，如果进程不存在返回0
+//   - int: 进程ID, 如果进程不存在返回0
 func (c *Command) GetPID() int {
 	if c.cmd.Process == nil {
 		return 0
@@ -232,8 +235,11 @@ func Exec(name string, args ...string) error {
 // 返回:
 //   - []byte: 输出
 //   - error: 错误信息
+//
+// 注意:
+//   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
 func ExecOutputStr(cmdStr string) ([]byte, error) {
-	return NewCmdStr(cmdStr).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().ExecOutput()
+	return NewCmdStr(cmdStr).Build().ExecOutput()
 }
 
 // ExecOutput 执行命令并返回合并后的输出(阻塞)
@@ -245,6 +251,9 @@ func ExecOutputStr(cmdStr string) ([]byte, error) {
 // 返回:
 //   - []byte: 输出
 //   - error: 错误信息
+//
+// 注意:
+//   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
 func ExecOutput(name string, args ...string) ([]byte, error) {
-	return NewCmd(name, args...).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().ExecOutput()
+	return NewCmd(name, args...).Build().ExecOutput()
 }
