@@ -209,7 +209,7 @@ func (c *Command) IsExecuted() bool {
 // 返回:
 //   - error: 错误信息
 func ExecStr(cmdStr string) error {
-	return NewCmdStr(cmdStr).Build().Exec()
+	return NewCmdStr(cmdStr).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().Exec()
 }
 
 // Exec 执行命令(阻塞)
@@ -221,7 +221,7 @@ func ExecStr(cmdStr string) error {
 // 返回:
 //   - error: 错误信息
 func Exec(name string, args ...string) error {
-	return NewCmd(name, args...).Build().Exec()
+	return NewCmd(name, args...).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().Exec()
 }
 
 // ExecOutputStr 执行命令并返回合并后的输出(阻塞)
@@ -233,7 +233,7 @@ func Exec(name string, args ...string) error {
 //   - []byte: 输出
 //   - error: 错误信息
 func ExecOutputStr(cmdStr string) ([]byte, error) {
-	return NewCmdStr(cmdStr).Build().ExecOutput()
+	return NewCmdStr(cmdStr).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().ExecOutput()
 }
 
 // ExecOutput 执行命令并返回合并后的输出(阻塞)
@@ -246,5 +246,5 @@ func ExecOutputStr(cmdStr string) ([]byte, error) {
 //   - []byte: 输出
 //   - error: 错误信息
 func ExecOutput(name string, args ...string) ([]byte, error) {
-	return NewCmd(name, args...).Build().ExecOutput()
+	return NewCmd(name, args...).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().ExecOutput()
 }
