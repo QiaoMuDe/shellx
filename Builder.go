@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -15,7 +16,7 @@ import (
 type Builder struct {
 	shellType ShellType       // shell类型, 默认根据操作系统自动选择(windows使用cmd, 其他系统使用sh)
 	raw       string          // 原始命令字符串
-	path      string          // 命令路径
+	name      string          // 命令名
 	args      []string        // 命令参数
 	ctx       context.Context // 上下文
 	dir       string          // 工作目录
@@ -24,6 +25,81 @@ type Builder struct {
 	stdout    io.Writer       // 标准输出
 	stderr    io.Writer       // 标准错误输出
 	timeout   time.Duration   // 超时时间
+	mu        sync.RWMutex    // 读写锁，用于保护命令构建器中的字段
+}
+
+// ShellType 获取shell类型
+//
+// 返回:
+//   - ShellType: shell类型
+func (b *Builder) ShellType() ShellType {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.shellType
+}
+
+// Raw 获取原始命令字符串
+//
+// 返回:
+//   - string: 原始命令字符串
+func (b *Builder) Raw() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.raw
+}
+
+// Name 获取命令名称
+//
+// 返回:
+//   - string: 命令名称
+func (b *Builder) Name() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.name
+}
+
+// Args 获取命令参数列表
+//
+// 返回:
+//   - []string: 命令参数列表
+func (b *Builder) Args() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	tempArgs := make([]string, len(b.args))
+	copy(tempArgs, b.args)
+	return tempArgs
+}
+
+// WorkDir 获取命令执行的工作目录
+//
+// 返回:
+//   - string: 命令执行目录
+func (b *Builder) WorkDir() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.dir
+}
+
+// Env 获取命令环境变量列表
+//
+// 返回:
+//   - []string: 命令环境变量列表
+func (b *Builder) Env() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	tempEnv := make([]string, len(b.env))
+	copy(tempEnv, b.env)
+	return tempEnv
+}
+
+// Timeout 获取命令执行超时时间
+//
+// 返回:
+//   - time.Duration: 命令执行超时时间
+func (b *Builder) Timeout() time.Duration {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.timeout
 }
 
 // NewCmd 创建新的命令构建器 (数组方式 - 可变参数)
@@ -40,10 +116,11 @@ func NewCmd(name string, args ...string) *Builder {
 	}
 
 	return &Builder{
-		path:      name,         // 命令路径
-		args:      args,         // 命令参数
-		env:       os.Environ(), // 默认继承父进程的环境变量
-		shellType: ShellDefault, // 默认根据操作系统自动选择shell
+		name:      name,           // 命令名
+		args:      args,           // 命令参数
+		env:       os.Environ(),   // 默认继承父进程的环境变量
+		shellType: ShellDefault,   // 默认根据操作系统自动选择shell
+		mu:        sync.RWMutex{}, // 读写锁
 	}
 }
 
@@ -92,6 +169,9 @@ func NewCmdStr(cmdStr string) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithWorkDir(dir string) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if dir == "" {
 		return b
 	}
@@ -109,6 +189,9 @@ func (b *Builder) WithWorkDir(dir string) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithEnv(key, value string) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if b.env == nil {
 		b.env = os.Environ()
 	}
@@ -130,6 +213,9 @@ func (b *Builder) WithEnv(key, value string) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithTimeout(timeout time.Duration) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if timeout <= 0 {
 		return b
 	}
@@ -146,6 +232,9 @@ func (b *Builder) WithTimeout(timeout time.Duration) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithContext(ctx context.Context) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if ctx == nil {
 		panic("context cannot be nil")
 	}
@@ -161,6 +250,9 @@ func (b *Builder) WithContext(ctx context.Context) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithStdin(stdin io.Reader) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if stdin == nil {
 		panic("stdin cannot be nil")
 	}
@@ -177,6 +269,9 @@ func (b *Builder) WithStdin(stdin io.Reader) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithStdout(stdout io.Writer) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if stdout == nil {
 		panic("stdout cannot be nil")
 	}
@@ -193,6 +288,9 @@ func (b *Builder) WithStdout(stdout io.Writer) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithStderr(stderr io.Writer) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if stderr == nil {
 		panic("stderr cannot be nil")
 	}
@@ -209,6 +307,9 @@ func (b *Builder) WithStderr(stderr io.Writer) *Builder {
 // 返回：
 //   - *Builder: 命令构建器对象
 func (b *Builder) WithShell(shell ShellType) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	b.shellType = shell
 	return b
 }
@@ -218,6 +319,9 @@ func (b *Builder) WithShell(shell ShellType) *Builder {
 // 返回:
 //   - *Command: 构建的命令对象
 func (b *Builder) Build() *Command {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	var cmd *exec.Cmd
 	if b.ctx != nil {
 		// 使用上下文创建命令对象
@@ -226,7 +330,7 @@ func (b *Builder) Build() *Command {
 			cmd = exec.CommandContext(b.ctx, b.shellType.String(), b.shellType.shellFlags(), getCmdStr(b))
 		} else {
 			// 不使用shell执行命令
-			cmd = exec.CommandContext(b.ctx, b.path, b.args...)
+			cmd = exec.CommandContext(b.ctx, b.name, b.args...)
 		}
 
 	} else {
@@ -236,7 +340,7 @@ func (b *Builder) Build() *Command {
 			cmd = exec.Command(b.shellType.String(), b.shellType.shellFlags(), getCmdStr(b))
 		} else {
 			// 不使用shell执行命令
-			cmd = exec.Command(b.path, b.args...)
+			cmd = exec.Command(b.name, b.args...)
 		}
 	}
 

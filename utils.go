@@ -22,7 +22,7 @@ func getCmdStr(b *Builder) string {
 		return b.raw
 	}
 
-	return fmt.Sprintf("%s %s", b.path, strings.Join(b.args, " "))
+	return fmt.Sprintf("%s %s", b.name, strings.Join(b.args, " "))
 }
 
 // ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
