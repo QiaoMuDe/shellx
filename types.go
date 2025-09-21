@@ -110,6 +110,10 @@ type Result struct {
 	startTime time.Time     // 开始执行时间
 	endTime   time.Time     // 结束执行时间
 	duration  time.Duration // 执行耗时
+
+	// 错误类型信息
+	isTimeout  bool // 是否超时
+	isCanceled bool // 是否被取消
 }
 
 // 提供公共访问方法
@@ -119,3 +123,5 @@ func (r *Result) Output() []byte          { return r.output }
 func (r *Result) Start() time.Time        { return r.startTime }
 func (r *Result) End() time.Time          { return r.endTime }
 func (r *Result) Duration() time.Duration { return r.duration }
+func (r *Result) IsTimeout() bool         { return r.isTimeout }
+func (r *Result) IsCanceled() bool        { return r.isCanceled }

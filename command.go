@@ -374,10 +374,10 @@ func (c *Command) Timeout() time.Duration {
 // Exec 执行命令(阻塞)
 //
 // 返回:
-//   - error: 错误信息
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 func (c *Command) Exec() error {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return fmt.Errorf("command has already been executed")
+		return ErrAlreadyExecuted
 	}
 
 	// 执行时才构建真正的exec.Cmd
@@ -386,20 +386,21 @@ func (c *Command) Exec() error {
 	// 确保资源清理
 	defer c.cleanup()
 
-	return c.execCmd.Run()
+	err := c.execCmd.Run()
+	return classifyError(err, c.getEffectiveTimeout())
 }
 
 // ExecOutput 执行命令并返回合并后的输出(阻塞)
 //
 // 返回:
 //   - []byte: 命令输出
-//   - error: 错误信息
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 //
 // 注意:
 //   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
 func (c *Command) ExecOutput() ([]byte, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return nil, fmt.Errorf("command has already been executed")
+		return nil, ErrAlreadyExecuted
 	}
 
 	// 执行时才构建真正的exec.Cmd
@@ -408,17 +409,18 @@ func (c *Command) ExecOutput() ([]byte, error) {
 	// 确保资源清理
 	defer c.cleanup()
 
-	return c.execCmd.CombinedOutput()
+	output, err := c.execCmd.CombinedOutput()
+	return output, classifyError(err, c.getEffectiveTimeout())
 }
 
 // ExecStdout 执行命令并返回标准输出(阻塞)
 //
 // 返回:
 //   - []byte: 标准输出
-//   - error: 错误信息
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 func (c *Command) ExecStdout() ([]byte, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return nil, fmt.Errorf("command has already been executed")
+		return nil, ErrAlreadyExecuted
 	}
 
 	// 执行时才构建真正的exec.Cmd
@@ -427,7 +429,8 @@ func (c *Command) ExecStdout() ([]byte, error) {
 	// 确保资源清理
 	defer c.cleanup()
 
-	return c.execCmd.Output()
+	output, err := c.execCmd.Output()
+	return output, classifyError(err, c.getEffectiveTimeout())
 }
 
 // ExecResult 执行命令并返回完整的执行结果(阻塞)
@@ -436,8 +439,13 @@ func (c *Command) ExecStdout() ([]byte, error) {
 //
 //	result, err := cmd.ExecResult()
 //	if err != nil {
-//	    // 处理错误情况
-//	    log.Printf("Command failed: %v", err)
+//	    if IsTimeoutError(err) {
+//	        log.Printf("Command timeout: %v", err)
+//	    } else if IsCanceledError(err) {
+//	        log.Printf("Command canceled: %v", err)
+//	    } else {
+//	        log.Printf("Command failed: %v", err)
+//	    }
 //	    return
 //	}
 //	// 处理成功情况
@@ -445,10 +453,10 @@ func (c *Command) ExecStdout() ([]byte, error) {
 //
 // 返回:
 //   - *Result: 执行结果对象, 包含输出、时间、退出码等信息
-//   - error: 执行过程中的错误信息
+//   - error: 执行过程中的错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 func (c *Command) ExecResult() (*Result, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return nil, fmt.Errorf("command has already been executed")
+		return nil, ErrAlreadyExecuted
 	}
 
 	// 执行时才构建真正的exec.Cmd
@@ -466,47 +474,50 @@ func (c *Command) ExecResult() (*Result, error) {
 	// 命令执行结束时间
 	endTime := time.Now()
 
+	// 分类错误
+	classifiedErr := classifyError(err, c.getEffectiveTimeout())
+
 	// 获取命令的退出码
-	var exitCode int
-	if err != nil {
-		exitCode = -1
-	}
+	exitCode := GetExitCode(classifiedErr)
 
 	// 创建Result对象
 	result := &Result{
-		startTime: startTime,              // 命令开始时间
-		endTime:   endTime,                // 命令结束时间
-		duration:  endTime.Sub(startTime), // 命令执行时间
-		output:    output,                 // 命令输出
-		success:   err == nil,             // 命令是否执行成功
-		exitCode:  exitCode,               // 命令退出码
+		startTime:  startTime,                      // 命令开始时间
+		endTime:    endTime,                        // 命令结束时间
+		duration:   endTime.Sub(startTime),         // 命令执行时间
+		output:     output,                         // 命令输出
+		success:    err == nil,                     // 命令是否执行成功
+		exitCode:   exitCode,                       // 命令退出码
+		isTimeout:  IsTimeoutError(classifiedErr),  // 是否超时
+		isCanceled: IsCanceledError(classifiedErr), // 是否被取消
 	}
 
-	return result, err
+	return result, classifiedErr
 }
 
 // ExecAsync 异步执行命令(非阻塞)
 //
 // 返回:
-//   - error: 错误信息
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 func (c *Command) ExecAsync() error {
 	if !c.execOne.CompareAndSwap(false, true) {
-		return fmt.Errorf("command has already been executed")
+		return ErrAlreadyExecuted
 	}
 
 	// 执行时才构建真正的exec.Cmd
 	c.buildExecCmd()
 
-	return c.execCmd.Start()
+	err := c.execCmd.Start()
+	return classifyError(err, c.getEffectiveTimeout())
 }
 
 // Wait 等待命令执行完成(仅在异步执行时有效)
 //
 // 返回:
-//   - error: 错误信息
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
 func (c *Command) Wait() error {
 	if c.execCmd == nil {
-		return fmt.Errorf("command has not been started")
+		return ErrNotStarted
 	}
 
 	err := c.execCmd.Wait()
@@ -514,7 +525,7 @@ func (c *Command) Wait() error {
 	// 清理资源
 	c.cleanup()
 
-	return err
+	return classifyError(err, c.getEffectiveTimeout())
 }
 
 // Cmd 获取底层的 exec.Cmd 对象
@@ -534,7 +545,7 @@ func (c *Command) Cmd() *exec.Cmd {
 //   - error: 错误信息
 func (c *Command) Kill() error {
 	if c.execCmd == nil || c.execCmd.Process == nil {
-		return fmt.Errorf("no process to kill")
+		return ErrNoProcess
 	}
 	return c.execCmd.Process.Kill()
 }
@@ -548,7 +559,7 @@ func (c *Command) Kill() error {
 //   - error: 错误信息
 func (c *Command) Signal(sig os.Signal) error {
 	if c.execCmd == nil || c.execCmd.Process == nil {
-		return fmt.Errorf("no process to signal")
+		return ErrNoProcess
 	}
 	return c.execCmd.Process.Signal(sig)
 }
@@ -588,4 +599,24 @@ func (c *Command) GetPID() int {
 //   - bool: 是否已执行
 func (c *Command) IsExecuted() bool {
 	return c.execOne.Load()
+}
+
+// getEffectiveTimeout 获取有效的超时时间
+// 优先使用用户上下文的超时，其次使用设置的超时时间
+func (c *Command) getEffectiveTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// 如果有用户上下文且有截止时间，计算剩余时间
+	if c.userCtx != nil {
+		if deadline, ok := c.userCtx.Deadline(); ok {
+			remaining := time.Until(deadline) // 计算剩余时间
+			if remaining > 0 {
+				return remaining
+			}
+		}
+	}
+
+	// 否则返回设置的超时时间
+	return c.timeout
 }
