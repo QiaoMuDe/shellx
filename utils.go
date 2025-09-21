@@ -95,7 +95,7 @@ func ExecOut(name string, args ...string) ([]byte, error) {
 //
 // 返回:
 //   - error: 错误信息
-func ExecStrTimeout(timeout time.Duration, cmdStr string) error {
+func ExecStrT(timeout time.Duration, cmdStr string) error {
 	cmd := NewCmdStr(cmdStr).WithStdout(os.Stdout).WithStderr(os.Stderr)
 
 	// 设置超时
