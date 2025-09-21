@@ -194,6 +194,10 @@ func (b *Builder) WithWorkDir(dir string) *Builder {
 //
 // 返回：
 //   - *Builder: 命令构建器对象
+//
+// 注意:
+//   - 该方法会验证key是否为空, 如果为空则忽略。
+//   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
 func (b *Builder) WithEnv(key, value string) *Builder {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -208,6 +212,41 @@ func (b *Builder) WithEnv(key, value string) *Builder {
 
 	// 只有当key不为空时才添加环境变量
 	b.env = append(b.env, fmt.Sprintf("%s=%s", key, value))
+	return b
+}
+
+// WithEnvs 批量设置命令的环境变量
+//
+// 参数：
+//   - envs: []string类型，环境变量列表，每个元素为"key=value"格式
+//
+// 返回：
+//   - *Builder: 命令构建器对象
+//
+// 注意:
+//   - 该方法会验证环境变量格式，只添加验证通过的环境变量。
+//   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+func (b *Builder) WithEnvs(envs []string) *Builder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if len(envs) == 0 {
+		return b
+	}
+
+	if b.env == nil {
+		b.env = os.Environ()
+	}
+
+	// 验证环境变量格式，只添加验证通过的环境变量
+	validEnvs := make([]string, 0, len(envs))
+	for _, env := range envs {
+		if err := validateEnvVar(env); err == nil {
+			validEnvs = append(validEnvs, env)
+		}
+	}
+
+	b.env = append(b.env, validEnvs...)
 	return b
 }
 
@@ -350,35 +389,17 @@ func (b *Builder) Build() *Command {
 		}
 	}
 
-	// 设置工作目录
-	if b.dir != "" {
-		cmd.Dir = b.dir
-	}
-
-	// 设置环境变量
-	if b.env != nil {
-		cmd.Env = b.env
-	}
-
-	// 设置标准输入、输出和错误输出
-	if b.stdin != nil {
-		cmd.Stdin = b.stdin
-	}
-	if b.stdout != nil {
-		cmd.Stdout = b.stdout
-	}
-	if b.stderr != nil {
-		cmd.Stderr = b.stderr
-	}
-
-	// 设置超时时间
-	if b.timeout > 0 {
-		cmd.WaitDelay = b.timeout
-	}
+	// 设置命令属性
+	cmd.Dir = b.dir           // 设置工作目录
+	cmd.Env = b.env           // 设置环境变量
+	cmd.Stdin = b.stdin       // 设置标准输入
+	cmd.Stdout = b.stdout     // 设置标准输出
+	cmd.Stderr = b.stderr     // 设置错误输出
+	cmd.WaitDelay = b.timeout // 设置超时时间
 
 	// 创建包装的命令对象
 	c := &Command{cmd: cmd}
-	c.execOne.Store(false)
+	c.execOne.Store(false) // 初始化执行状态为false
 
 	// 返回包装的命令对象
 	return c

@@ -1,8 +1,98 @@
-# Package shellx
+# ShellX API 文档
 
 ```go
 import "gitee.com/MM-Q/shellx"
 ```
+
+## 📚 API 概述
+
+### 核心类型
+
+| 类型 | 描述 |
+|------|------|
+| `Builder` | 命令构建器，提供链式调用 API |
+| `Command` | 命令执行对象，封装 exec.Cmd 并提供额外功能 |
+| `Result` | 命令执行结果，包含输出、错误、时间等信息 |
+| `ShellType` | Shell 类型枚举，支持多种 shell |
+
+### 主要方法
+
+#### 创建命令
+
+```go
+// 可变参数方式
+func NewCmd(name string, args ...string) *Builder
+
+// 切片方式
+func NewCmds(cmdArgs []string) *Builder
+
+// 字符串解析方式
+func NewCmdStr(cmdStr string) *Builder
+```
+
+#### 链式配置
+
+```go
+func (b *Builder) WithWorkDir(dir string) *Builder
+func (b *Builder) WithEnv(key, value string) *Builder
+func (b *Builder) WithEnvs(envs []string) *Builder
+func (b *Builder) WithTimeout(timeout time.Duration) *Builder
+func (b *Builder) WithContext(ctx context.Context) *Builder
+func (b *Builder) WithStdin(stdin io.Reader) *Builder
+func (b *Builder) WithStdout(stdout io.Writer) *Builder
+func (b *Builder) WithStderr(stderr io.Writer) *Builder
+func (b *Builder) WithShell(shell ShellType) *Builder
+func (b *Builder) Build() *Command
+```
+
+#### 便捷函数
+
+```go
+// 直接执行命令
+func Exec(name string, args ...string) error
+func ExecStr(cmdStr string) error
+
+// 执行命令并获取输出
+func ExecOutput(name string, args ...string) ([]byte, error)
+func ExecOutputStr(cmdStr string) ([]byte, error)
+```
+
+#### 命令执行
+
+```go
+// 同步执行
+func (c *Command) Exec() error
+func (c *Command) ExecOutput() ([]byte, error)
+func (c *Command) ExecStdout() ([]byte, error)
+func (c *Command) ExecResult() (*Result, error)
+
+// 异步执行
+func (c *Command) ExecAsync() error
+func (c *Command) Wait() error
+
+// 进程控制
+func (c *Command) Kill() error
+func (c *Command) Signal(sig os.Signal) error
+func (c *Command) IsRunning() bool
+func (c *Command) GetPID() int
+func (c *Command) IsExecuted() bool
+```
+
+### Shell 类型支持
+
+| Shell 类型 | 常量 | 平台支持 | 描述 |
+|------------|------|----------|------|
+| **sh** | `ShellSh` | Unix/Linux/macOS | 标准 Unix shell |
+| **bash** | `ShellBash` | Unix/Linux/macOS | Bash shell |
+| **cmd** | `ShellCmd` | Windows | Windows 命令提示符 |
+| **powershell** | `ShellPowerShell` | Windows | Windows PowerShell |
+| **pwsh** | `ShellPwsh` | 跨平台 | PowerShell Core |
+| **none** | `ShellNone` | 跨平台 | 直接执行，不使用 shell |
+| **default** | `ShellDefault` | 跨平台 | 根据操作系统自动选择 |
+
+---
+
+## 📖 详细文档
 
 Package shellx 定义了shell命令执行库的核心数据类型。 本文件定义了Builder结构体和相关构造函数，提供链式调用API来构建命令对象。
 
@@ -464,6 +554,28 @@ WithEnv 设置命令的环境变量
 
 **返回：**
 - *Builder: 命令构建器对象
+
+**注意:**
+- 该方法会验证key是否为空, 如果为空则忽略。
+- 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+
+#### func (*Builder) WithEnvs
+
+```go
+func (b *Builder) WithEnvs(envs []string) *Builder
+```
+
+WithEnvs 批量设置命令的环境变量
+
+**参数：**
+- envs: []string类型，环境变量列表，每个元素为"key=value"格式
+
+**返回：**
+- *Builder: 命令构建器对象
+
+**注意:**
+- 该方法会验证环境变量格式，只添加验证通过的环境变量。
+- 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
 
 #### func (*Builder) WithShell
 

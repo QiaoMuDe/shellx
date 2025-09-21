@@ -10,7 +10,7 @@
 
 **一个功能完善、易于使用的 Go 语言 Shell 命令执行库**
 
-[🏠 仓库地址](https://gitee.com/MM-Q/shellx) • [📖 文档](#api-文档概述) • [🚀 快速开始](#安装指南) • [💡 示例](#使用示例)
+[🏠 仓库地址](https://gitee.com/MM-Q/shellx) • [📖 API文档](APIDOC.md) • [🚀 快速开始](#安装指南) • [💡 示例](#使用示例)
 
 </div>
 
@@ -236,102 +236,24 @@ for name, shellType := range examples {
 }
 ```
 
-## 📚 API 文档概述
-
-### 核心类型
-
-| 类型 | 描述 |
-|------|------|
-| `Builder` | 命令构建器，提供链式调用 API |
-| `Command` | 命令执行对象，封装 exec.Cmd 并提供额外功能 |
-| `Result` | 命令执行结果，包含输出、错误、时间等信息 |
-| `ShellType` | Shell 类型枚举，支持多种 shell |
-
-### 主要方法
-
-#### 创建命令
-
-```go
-// 可变参数方式
-func NewCmd(name string, args ...string) *Builder
-
-// 切片方式
-func NewCmds(cmdArgs []string) *Builder
-
-// 字符串解析方式
-func NewCmdStr(cmdStr string) *Builder
-```
-
-#### 链式配置
-
-```go
-func (b *Builder) WithWorkDir(dir string) *Builder
-func (b *Builder) WithEnv(key, value string) *Builder
-func (b *Builder) WithTimeout(timeout time.Duration) *Builder
-func (b *Builder) WithContext(ctx context.Context) *Builder
-func (b *Builder) WithStdin(stdin io.Reader) *Builder
-func (b *Builder) WithStdout(stdout io.Writer) *Builder
-func (b *Builder) WithStderr(stderr io.Writer) *Builder
-func (b *Builder) WithShell(shell ShellType) *Builder
-func (b *Builder) Build() *Command
-```
-
-#### 便捷函数
-
-```go
-// 直接执行命令
-func Exec(name string, args ...string) error
-func ExecStr(cmdStr string) error
-
-// 执行命令并获取输出
-func ExecOutput(name string, args ...string) ([]byte, error)
-func ExecOutputStr(cmdStr string) ([]byte, error)
-```
-
-#### 命令执行
-
-```go
-// 同步执行
-func (c *Command) Exec() error
-func (c *Command) ExecOutput() ([]byte, error)
-func (c *Command) ExecStdout() ([]byte, error)
-func (c *Command) ExecResult() (*Result, error)
-
-// 异步执行
-func (c *Command) ExecAsync() error
-func (c *Command) Wait() error
-
-// 进程控制
-func (c *Command) Kill() error
-func (c *Command) Signal(sig os.Signal) error
-func (c *Command) IsRunning() bool
-func (c *Command) GetPID() int
-func (c *Command) IsExecuted() bool
-```
-
 ## 🎯 支持的功能
 
 ### Shell 类型支持
 
-| Shell 类型 | 常量 | 平台支持 | 描述 |
-|------------|------|----------|------|
-| **sh** | `ShellSh` | Unix/Linux/macOS | 标准 Unix shell |
-| **bash** | `ShellBash` | Unix/Linux/macOS | Bash shell |
-| **cmd** | `ShellCmd` | Windows | Windows 命令提示符 |
-| **powershell** | `ShellPowerShell` | Windows | Windows PowerShell |
-| **pwsh** | `ShellPwsh` | 跨平台 | PowerShell Core |
-| **none** | `ShellNone` | 跨平台 | 直接执行，不使用 shell |
-| **default** | `ShellDefault` | 跨平台 | 根据操作系统自动选择 |
+- **sh** - 标准 Unix shell
+- **bash** - Bash shell  
+- **cmd** - Windows 命令提示符
+- **powershell** - Windows PowerShell
+- **pwsh** - PowerShell Core (跨平台)
+- **none** - 直接执行，不使用 shell
+- **default** - 根据操作系统自动选择
 
 ### 命令解析特性
 
-- ✅ 单引号 `'` 支持
-- ✅ 双引号 `"` 支持  
-- ✅ 反引号 `` ` `` 支持
+- ✅ 单引号、双引号、反引号支持
 - ✅ 引号嵌套处理
 - ✅ 转义字符支持
-- ✅ 多空格处理
-- ✅ 制表符处理
+- ✅ 多空格和制表符处理
 - ✅ 未闭合引号检测
 
 ### 执行模式
@@ -340,6 +262,8 @@ func (c *Command) IsExecuted() bool
 - ⚡ **异步执行**：非阻塞启动，可后续等待
 - 📊 **结果获取**：完整的执行结果信息
 - 🎯 **输出捕获**：标准输出和错误输出
+
+详细的 API 文档请参考：[📖 API 文档](APIDOC.md)
 
 ## ⚙️ 配置选项
 

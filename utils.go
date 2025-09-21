@@ -126,3 +126,28 @@ func ParseCmd(cmdStr string) []string {
 func FindCmd(name string) (string, error) {
 	return exec.LookPath(name)
 }
+
+// validateEnvVar 验证环境变量格式
+//
+// 参数:
+//   - env: 环境变量字符串，格式为 "key=value"
+//
+// 返回:
+//   - error: 错误信息
+func validateEnvVar(env string) error {
+	if strings.TrimSpace(env) == "" {
+		return fmt.Errorf("environment variable cannot be empty")
+	}
+
+	parts := strings.SplitN(env, "=", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid environment variable format, expected 'key=value': %s", env)
+	}
+
+	key := strings.TrimSpace(parts[0])
+	if key == "" {
+		return fmt.Errorf("environment variable key cannot be empty: %s", env)
+	}
+
+	return nil
+}
