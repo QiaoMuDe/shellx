@@ -17,8 +17,7 @@
 //   - 跨平台兼容（Windows、Linux、macOS）
 //
 // 核心组件：
-//   - Builder: 命令构建器，提供链式调用API
-//   - Command: 命令执行对象，封装exec.Cmd并提供额外功能
+//   - Command: 命令对象，集配置、构建、执行于一体
 //   - Result: 命令执行结果，包含输出、错误、时间等信息
 //   - ShellType: Shell类型枚举，支持多种shell
 //
@@ -30,13 +29,11 @@
 //	cmd := shellx.NewCmd("ls", "-la").
 //		WithWorkDir("/tmp").
 //		WithTimeout(30 * time.Second).
-//		WithShell(shellx.ShellBash).
-//		Build()
+//		WithShell(shellx.ShellBash)
 //
 //	// 方式2：使用字符串创建命令
 //	cmd := shellx.NewCmdStr(`echo "hello world"`).
-//		WithEnv("MY_VAR", "value").
-//		Build()
+//		WithEnv("MY_VAR", "value")
 //
 //	// 同步执行
 //	err := cmd.Exec()
@@ -75,16 +72,14 @@
 //	cmd := shellx.NewCmd("cat").
 //		WithStdin(stdin).
 //		WithStdout(&stdout).
-//		WithStderr(&stderr).
-//		Build()
+//		WithStderr(&stderr)
 //
 //	// 使用上下文控制
 //	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 //	defer cancel()
 //
 //	cmd := shellx.NewCmd("long-running-command").
-//		WithContext(ctx).
-//		Build()
+//		WithContext(ctx)
 //
 //	// 进程控制
 //	cmd.ExecAsync()
@@ -111,8 +106,8 @@
 //
 // 注意事项：
 //   - 每个Command对象只能执行一次，重复执行会返回错误
-//   - Builder是并发安全的，可以在多个goroutine中安全使用
+//   - Command是并发安全的，可以在多个goroutine中安全使用
 //   - 命令执行会继承父进程的环境变量，可通过WithEnv添加额外变量
-//   - 超时设置仅在支持的Go版本中有效
+//   - 超时控制在执行时创建上下文，确保计时精确
 //   - 异步执行需要调用Wait()等待完成或使用Kill()终止
 package shellx

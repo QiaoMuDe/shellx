@@ -1,35 +1,374 @@
 // Package shellx 定义了shell命令执行库的核心数据类型。
-// 本文件定义了Command结构体, 封装了exec.Cmd并提供了丰富的命令执行功能。
+// 本文件定义了Command结构体, 集配置、构建、执行于一体的一体化设计。
 //
-// Command是命令执行对象的核心实现, 支持:
+// Command是命令对象的核心实现, 支持:
+//   - 配置方法: WithWorkDir、WithEnv、WithTimeout、WithContext等链式调用
 //   - 同步执行: Exec、ExecOutput、ExecStdout、ExecResult
 //   - 异步执行: ExecAsync、Wait
 //   - 进程控制: Kill、Signal、IsRunning、GetPID
 //   - 执行状态管理: IsExecuted（确保命令只执行一次）
 //   - 完整的执行结果: Result对象包含输出、错误、时间、退出码等信息
+//   - 延迟构建: 真正的exec.Cmd对象在执行时才创建，确保超时控制精确
 package shellx
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 )
 
-// Command 命令对象
+// Command 命令对象 - 集配置、构建、执行于一体
 type Command struct {
-	cmd     *exec.Cmd   // 底层的 exec.Cmd 对象
-	execOne atomic.Bool // 用于确保每个命令只执行一次
+	// 基本命令配置
+	shellType ShellType // shell类型
+	raw       string    // 原始命令字符串
+	name      string    // 命令名
+	args      []string  // 命令参数
+
+	// 执行环境配置
+	dir    string    // 工作目录
+	envs   []string  // 环境变量
+	stdin  io.Reader // 标准输入
+	stdout io.Writer // 标准输出
+	stderr io.Writer // 标准错误输出
+
+	// 上下文和超时配置
+	userCtx context.Context // 用户设置的上下文
+	timeout time.Duration   // 超时时间
+
+	// 执行状态和控制
+	execCmd *exec.Cmd          // 真正的exec.Cmd对象（延迟创建）
+	cancel  context.CancelFunc // 超时上下文的取消函数
+	execOne atomic.Bool        // 确保只执行一次
+	mu      sync.RWMutex       // 保护配置字段的并发安全
 }
 
-// Cmd 获取底层的 exec.Cmd 对象
+// NewCmd 创建新的命令对象 (数组方式 - 可变参数)
+//
+// 参数：
+//   - name: 命令名
+//   - args: 命令参数列表
+//
+// 返回：
+//   - *Command: 命令对象
+func NewCmd(name string, args ...string) *Command {
+	if name == "" {
+		panic("name cannot be empty")
+	}
+
+	return &Command{
+		name:      name,
+		args:      args,
+		envs:      os.Environ(), // 默认继承父进程的环境变量
+		shellType: ShellDefault, // 默认根据操作系统自动选择shell
+		mu:        sync.RWMutex{},
+	}
+}
+
+// NewCmds 创建新的命令对象 (数组方式 - 切片参数)
+//
+// 参数：
+//   - cmdArgs: 命令参数列表，第一个元素为命令名，后续元素为参数
+//
+// 返回：
+//   - *Command: 命令对象
+func NewCmds(cmdArgs []string) *Command {
+	if len(cmdArgs) == 0 {
+		panic("cmdArgs cannot be empty")
+	}
+
+	name := cmdArgs[0] // 第一个元素为命令名
+	args := []string{} // 后续元素为参数
+	if len(cmdArgs) > 1 {
+		args = cmdArgs[1:]
+	}
+
+	return NewCmd(name, args...)
+}
+
+// NewCmdStr 创建新的命令对象 (字符串方式)
+//
+// 参数：
+//   - cmdStr: 命令字符串
+//
+// 返回：
+//   - *Command: 命令对象
+func NewCmdStr(cmdStr string) *Command {
+	cmds := ParseCmd(cmdStr) // 使用命令解析器解析命令字符串
+	cmd := NewCmds(cmds)
+	cmd.raw = cmdStr // 保存原始命令字符串
+	return cmd
+}
+
+// WithWorkDir 设置命令的工作目录
+//
+// 参数：
+//   - dir: 命令的工作目录
+//
+// 返回：
+//   - *Command: 命令对象
+func (c *Command) WithWorkDir(dir string) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if dir != "" {
+		c.dir = dir
+	}
+	return c
+}
+
+// WithEnv 设置命令的环境变量
+//
+// 参数：
+//   - key: 环境变量的键
+//   - value: 环境变量的值
+//
+// 返回：
+//   - *Command: 命令对象
+//
+// 注意:
+//   - 该方法会验证key是否为空, 如果为空则忽略。
+//   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+func (c *Command) WithEnv(key, value string) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.envs == nil {
+		c.envs = os.Environ()
+	}
+
+	if key != "" {
+		c.envs = append(c.envs, fmt.Sprintf("%s=%s", key, value))
+	}
+	return c
+}
+
+// WithEnvs 批量设置命令的环境变量
+//
+// 参数：
+//   - envs: []string类型，环境变量列表，每个元素为"key=value"格式
+//
+// 返回：
+//   - *Command: 命令对象
+//
+// 注意:
+//   - 该方法会验证环境变量格式，只添加验证通过的环境变量。
+//   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+func (c *Command) WithEnvs(envs []string) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(envs) == 0 {
+		return c
+	}
+
+	if c.envs == nil {
+		c.envs = os.Environ()
+	}
+
+	// 验证环境变量格式，只添加验证通过的环境变量
+	validEnvs := make([]string, 0, len(envs))
+	for _, env := range envs {
+		if err := validateEnvVar(env); err == nil {
+			validEnvs = append(validEnvs, env)
+		}
+	}
+
+	c.envs = append(c.envs, validEnvs...)
+	return c
+}
+
+// WithTimeout 设置命令的超时时间(便捷方式)
+//
+// 参数：
+//   - timeout: time.Duration类型，命令执行的超时时间
+//
+// 返回：
+//   - *Command: 命令对象
+//
+// 注意:
+//   - 该方法会验证超时时间是否小于等于0, 如果小于等于0则忽略。
+//   - 该超时时间优先级低于上下文设置的超时时间.
+func (c *Command) WithTimeout(timeout time.Duration) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// 超时大于0时才设置
+	if timeout > 0 {
+		c.timeout = timeout
+	}
+	return c
+}
+
+// WithContext 设置命令的上下文
+//
+// 参数：
+//   - ctx: context.Context类型，用于取消命令执行和超时控制
+//
+// 返回：
+//   - *Command: 命令对象
+//
+// 注意:
+//   - 该方法会验证上下文是否为空，如果为空则panic.
+//   - 该上下文会覆盖之前设置的超时时间.
+func (c *Command) WithContext(ctx context.Context) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if ctx == nil {
+		panic("context cannot be nil")
+	}
+	c.userCtx = ctx
+	return c
+}
+
+// WithStdin 设置命令的标准输入
+//
+// 参数：
+//   - stdin: io.Reader类型，用于提供命令的标准输入
+//
+// 返回：
+//   - *Command: 命令对象
+func (c *Command) WithStdin(stdin io.Reader) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if stdin == nil {
+		panic("stdin cannot be nil")
+	}
+	c.stdin = stdin
+	return c
+}
+
+// WithStdout 设置命令的标准输出
+//
+// 参数：
+//   - stdout: io.Writer类型，用于接收命令的标准输出
+//
+// 返回：
+//   - *Command: 命令对象
+func (c *Command) WithStdout(stdout io.Writer) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if stdout == nil {
+		panic("stdout cannot be nil")
+	}
+	c.stdout = stdout
+	return c
+}
+
+// WithStderr 设置命令的标准错误输出
+//
+// 参数：
+//   - stderr: io.Writer类型，用于接收命令的标准错误输出
+//
+// 返回：
+//   - *Command: 命令对象
+func (c *Command) WithStderr(stderr io.Writer) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if stderr == nil {
+		panic("stderr cannot be nil")
+	}
+	c.stderr = stderr
+	return c
+}
+
+// WithShell 设置命令的shell类型
+//
+// 参数：
+//   - shell: ShellType类型，表示要使用的shell类型
+//
+// 返回：
+//   - *Command: 命令对象
+func (c *Command) WithShell(shell ShellType) *Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.shellType = shell
+	return c
+}
+
+// ShellType 获取shell类型
 //
 // 返回:
-//   - *exec.Cmd: 底层的 exec.Cmd 对象
-func (c *Command) Cmd() *exec.Cmd {
-	return c.cmd
+//   - ShellType: shell类型
+func (c *Command) ShellType() ShellType {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.shellType
+}
+
+// Raw 获取原始命令字符串
+//
+// 返回:
+//   - string: 原始命令字符串
+func (c *Command) Raw() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.raw
+}
+
+// Name 获取命令名称
+//
+// 返回:
+//   - string: 命令名称
+func (c *Command) Name() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.name
+}
+
+// Args 获取命令参数列表
+//
+// 返回:
+//   - []string: 命令参数列表
+func (c *Command) Args() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	tempArgs := make([]string, len(c.args))
+	copy(tempArgs, c.args)
+	return tempArgs
+}
+
+// WorkDir 获取命令执行的工作目录
+//
+// 返回:
+//   - string: 命令执行目录
+func (c *Command) WorkDir() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.dir
+}
+
+// Env 获取命令环境变量列表
+//
+// 返回:
+//   - []string: 命令环境变量列表
+func (c *Command) Env() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	tempEnv := make([]string, len(c.envs))
+	copy(tempEnv, c.envs)
+	return tempEnv
+}
+
+// Timeout 获取命令执行超时时间
+//
+// 返回:
+//   - time.Duration: 命令执行超时时间
+func (c *Command) Timeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.timeout
 }
 
 // Exec 执行命令(阻塞)
@@ -40,7 +379,14 @@ func (c *Command) Exec() error {
 	if !c.execOne.CompareAndSwap(false, true) {
 		return fmt.Errorf("command has already been executed")
 	}
-	return c.cmd.Run()
+
+	// 执行时才构建真正的exec.Cmd
+	c.buildExecCmd()
+
+	// 确保资源清理
+	defer c.cleanup()
+
+	return c.execCmd.Run()
 }
 
 // ExecOutput 执行命令并返回合并后的输出(阻塞)
@@ -55,7 +401,14 @@ func (c *Command) ExecOutput() ([]byte, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
 		return nil, fmt.Errorf("command has already been executed")
 	}
-	return c.cmd.CombinedOutput()
+
+	// 执行时才构建真正的exec.Cmd
+	c.buildExecCmd()
+
+	// 确保资源清理
+	defer c.cleanup()
+
+	return c.execCmd.CombinedOutput()
 }
 
 // ExecStdout 执行命令并返回标准输出(阻塞)
@@ -67,7 +420,14 @@ func (c *Command) ExecStdout() ([]byte, error) {
 	if !c.execOne.CompareAndSwap(false, true) {
 		return nil, fmt.Errorf("command has already been executed")
 	}
-	return c.cmd.Output()
+
+	// 执行时才构建真正的exec.Cmd
+	c.buildExecCmd()
+
+	// 确保资源清理
+	defer c.cleanup()
+
+	return c.execCmd.Output()
 }
 
 // ExecResult 执行命令并返回完整的执行结果(阻塞)
@@ -91,11 +451,17 @@ func (c *Command) ExecResult() (*Result, error) {
 		return nil, fmt.Errorf("command has already been executed")
 	}
 
+	// 执行时才构建真正的exec.Cmd
+	c.buildExecCmd()
+
+	// 确保资源清理
+	defer c.cleanup()
+
 	// 命令执行开始时间
 	startTime := time.Now()
 
 	// 执行命令
-	output, err := c.cmd.CombinedOutput()
+	output, err := c.execCmd.CombinedOutput()
 
 	// 命令执行结束时间
 	endTime := time.Now()
@@ -108,11 +474,11 @@ func (c *Command) ExecResult() (*Result, error) {
 
 	// 创建Result对象
 	result := &Result{
-		startTime: startTime,              // 命令开始执行时间
-		endTime:   endTime,                // 命令执行结束时间
-		duration:  endTime.Sub(startTime), // 命令执行耗时
+		startTime: startTime,              // 命令开始时间
+		endTime:   endTime,                // 命令结束时间
+		duration:  endTime.Sub(startTime), // 命令执行时间
 		output:    output,                 // 命令输出
-		success:   err == nil,             // 命令执行是否成功
+		success:   err == nil,             // 命令是否执行成功
 		exitCode:  exitCode,               // 命令退出码
 	}
 
@@ -127,7 +493,11 @@ func (c *Command) ExecAsync() error {
 	if !c.execOne.CompareAndSwap(false, true) {
 		return fmt.Errorf("command has already been executed")
 	}
-	return c.cmd.Start()
+
+	// 执行时才构建真正的exec.Cmd
+	c.buildExecCmd()
+
+	return c.execCmd.Start()
 }
 
 // Wait 等待命令执行完成(仅在异步执行时有效)
@@ -135,7 +505,27 @@ func (c *Command) ExecAsync() error {
 // 返回:
 //   - error: 错误信息
 func (c *Command) Wait() error {
-	return c.cmd.Wait()
+	if c.execCmd == nil {
+		return fmt.Errorf("command has not been started")
+	}
+
+	err := c.execCmd.Wait()
+
+	// 清理资源
+	c.cleanup()
+
+	return err
+}
+
+// Cmd 获取底层的 exec.Cmd 对象
+//
+// 返回:
+//   - *exec.Cmd: 底层的 exec.Cmd 对象
+func (c *Command) Cmd() *exec.Cmd {
+	if c.execCmd == nil {
+		c.buildExecCmd() // 如果还没构建，先构建
+	}
+	return c.execCmd
 }
 
 // Kill 杀死当前命令的进程
@@ -143,10 +533,10 @@ func (c *Command) Wait() error {
 // 返回:
 //   - error: 错误信息
 func (c *Command) Kill() error {
-	if c.cmd.Process == nil {
+	if c.execCmd == nil || c.execCmd.Process == nil {
 		return fmt.Errorf("no process to kill")
 	}
-	return c.cmd.Process.Kill()
+	return c.execCmd.Process.Kill()
 }
 
 // Signal 向当前进程发送信号
@@ -157,10 +547,10 @@ func (c *Command) Kill() error {
 // 返回:
 //   - error: 错误信息
 func (c *Command) Signal(sig os.Signal) error {
-	if c.cmd.Process == nil {
+	if c.execCmd == nil || c.execCmd.Process == nil {
 		return fmt.Errorf("no process to signal")
 	}
-	return c.cmd.Process.Signal(sig)
+	return c.execCmd.Process.Signal(sig)
 }
 
 // IsRunning 检查进程是否还在运行
@@ -168,16 +558,16 @@ func (c *Command) Signal(sig os.Signal) error {
 // 返回:
 //   - bool: 是否在运行
 func (c *Command) IsRunning() bool {
-	if c.cmd.Process == nil {
+	if c.execCmd == nil || c.execCmd.Process == nil {
 		return false
 	}
 
-	if c.cmd.ProcessState != nil {
+	if c.execCmd.ProcessState != nil {
 		return false // 进程已结束
 	}
 
 	// 尝试发送信号0检查进程是否存在
-	err := c.cmd.Process.Signal(syscall.Signal(0))
+	err := c.execCmd.Process.Signal(syscall.Signal(0))
 	return err == nil
 }
 
@@ -186,10 +576,10 @@ func (c *Command) IsRunning() bool {
 // 返回:
 //   - int: 进程ID, 如果进程不存在返回0
 func (c *Command) GetPID() int {
-	if c.cmd.Process == nil {
+	if c.execCmd == nil || c.execCmd.Process == nil {
 		return 0
 	}
-	return c.cmd.Process.Pid
+	return c.execCmd.Process.Pid
 }
 
 // IsExecuted 检查命令是否已经执行过
@@ -198,62 +588,4 @@ func (c *Command) GetPID() int {
 //   - bool: 是否已执行
 func (c *Command) IsExecuted() bool {
 	return c.execOne.Load()
-}
-
-// ########################################
-// 便捷函数
-// ########################################
-
-// ExecStr 执行命令(阻塞)
-//
-// 参数:
-//   - cmdStr: 命令字符串
-//
-// 返回:
-//   - error: 错误信息
-func ExecStr(cmdStr string) error {
-	return NewCmdStr(cmdStr).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().Exec()
-}
-
-// Exec 执行命令(阻塞)
-//
-// 函数:
-//   - name: 命令名
-//   - args: 命令参数
-//
-// 返回:
-//   - error: 错误信息
-func Exec(name string, args ...string) error {
-	return NewCmd(name, args...).WithStdout(os.Stdout).WithStderr(os.Stderr).Build().Exec()
-}
-
-// ExecOutputStr 执行命令并返回合并后的输出(阻塞)
-//
-// 参数:
-//   - cmdStr: 命令字符串
-//
-// 返回:
-//   - []byte: 输出
-//   - error: 错误信息
-//
-// 注意:
-//   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
-func ExecOutputStr(cmdStr string) ([]byte, error) {
-	return NewCmdStr(cmdStr).Build().ExecOutput()
-}
-
-// ExecOutput 执行命令并返回合并后的输出(阻塞)
-//
-// 函数:
-//   - name: 命令名
-//   - args: 命令参数
-//
-// 返回:
-//   - []byte: 输出
-//   - error: 错误信息
-//
-// 注意:
-//   - 由于需要捕获默认的stdout和stderr合并输出, 内部已经设置了WithStdout(os.Stdout)和WithStderr(os.Stderr)
-func ExecOutput(name string, args ...string) ([]byte, error) {
-	return NewCmd(name, args...).Build().ExecOutput()
 }
