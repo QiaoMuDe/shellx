@@ -296,6 +296,7 @@ shellx/
 ├── go.mod                    # Go 模块文件
 ├── shellx.go                 # 主包文档
 ├── command.go                # 命令执行对象实现
+|── errors.go                 # 错误处理
 ├── types.go                  # 类型定义
 ├── utils.go                  # 工具函数和便捷函数
 ├── internal.go               # 内部共享函数
