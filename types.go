@@ -30,7 +30,7 @@ const (
 	ShellPowerShell                  // powershell (Windows PowerShell)
 	ShellCmd                         // cmd (Windows Command Prompt)
 	ShellNone                        // 无shell, 直接原生的执行命令
-	ShellDefault                     // 默认shell, 根据操作系统自动选择(Windows系统默认为cmd, 其他系统默认为sh)
+	ShellDefault                     // 默认shell, 根据操作系统自动选择(Windows系统默认为powershell, 其他系统默认为sh)
 )
 
 // String 返回shell类型的字符串表示
@@ -56,7 +56,7 @@ func (s ShellType) String() string {
 
 	case ShellDefault:
 		if runtime.GOOS == "windows" {
-			return "cmd"
+			return "powershell"
 		}
 		return "sh"
 
@@ -88,7 +88,7 @@ func (s ShellType) shellFlags() string {
 
 	case ShellDefault:
 		if runtime.GOOS == "windows" {
-			return "/c"
+			return "-Command"
 		}
 		return "-c"
 
@@ -110,10 +110,6 @@ type Result struct {
 	startTime time.Time     // 开始执行时间
 	endTime   time.Time     // 结束执行时间
 	duration  time.Duration // 执行耗时
-
-	// 错误类型信息
-	isTimeout  bool // 是否超时
-	isCanceled bool // 是否被取消
 }
 
 // 提供公共访问方法
@@ -123,5 +119,3 @@ func (r *Result) Output() []byte          { return r.output }
 func (r *Result) Start() time.Time        { return r.startTime }
 func (r *Result) End() time.Time          { return r.endTime }
 func (r *Result) Duration() time.Duration { return r.duration }
-func (r *Result) IsTimeout() bool         { return r.isTimeout }
-func (r *Result) IsCanceled() bool        { return r.isCanceled }

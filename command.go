@@ -1,14 +1,15 @@
-// Package shellx 定义了shell命令执行库的核心数据类型。
-// 本文件定义了Command结构体, 集配置、构建、执行于一体的一体化设计。
+// Package shellx 命令执行核心模块
+// 本文件定义了 Command 结构体及其相关方法，是 shellx 包的核心实现。
 //
-// Command是命令对象的核心实现, 支持:
-//   - 配置方法: WithWorkDir、WithEnv、WithTimeout、WithContext等链式调用
-//   - 同步执行: Exec、ExecOutput、ExecStdout、ExecResult
-//   - 异步执行: ExecAsync、Wait
-//   - 进程控制: Kill、Signal、IsRunning、GetPID
-//   - 执行状态管理: IsExecuted（确保命令只执行一次）
-//   - 完整的执行结果: Result对象包含输出、错误、时间、退出码等信息
-//   - 延迟构建: 真正的exec.Cmd对象在执行时才创建，确保超时控制精确
+// Command 结构体采用一体化设计，集配置、构建、执行于一体，支持：
+//   - 链式配置：WithWorkDir、WithEnv、WithTimeout、WithContext 等
+//   - 同步执行：Exec、ExecOutput、ExecStdout、ExecResult
+//   - 异步执行：ExecAsync、Wait
+//   - 进程控制：Kill、Signal、IsRunning、GetPID
+//   - 状态管理：IsExecuted（确保命令只执行一次）
+//   - 延迟构建：exec.Cmd 对象在执行时才创建，确保超时控制精确
+//
+// 提供完整的命令执行解决方案，支持多种执行模式和丰富的配置选项。
 package shellx
 
 import (
@@ -339,6 +340,18 @@ func (c *Command) Args() []string {
 	return tempArgs
 }
 
+// CmdStr 获取命令字符串
+//
+// 返回:
+//   - string: 命令字符串
+func (c *Command) CmdStr() string {
+	if c.execCmd == nil {
+		return c.raw
+	} else {
+		return c.execCmd.String()
+	}
+}
+
 // WorkDir 获取命令执行的工作目录
 //
 // 返回:
@@ -387,7 +400,7 @@ func (c *Command) Exec() error {
 	defer c.cleanup()
 
 	err := c.execCmd.Run()
-	return classifyError(err, c.getEffectiveTimeout())
+	return judgeError(err, c)
 }
 
 // ExecOutput 执行命令并返回合并后的输出(阻塞)
@@ -410,7 +423,7 @@ func (c *Command) ExecOutput() ([]byte, error) {
 	defer c.cleanup()
 
 	output, err := c.execCmd.CombinedOutput()
-	return output, classifyError(err, c.getEffectiveTimeout())
+	return output, judgeError(err, c)
 }
 
 // ExecStdout 执行命令并返回标准输出(阻塞)
@@ -430,7 +443,7 @@ func (c *Command) ExecStdout() ([]byte, error) {
 	defer c.cleanup()
 
 	output, err := c.execCmd.Output()
-	return output, classifyError(err, c.getEffectiveTimeout())
+	return output, judgeError(err, c)
 }
 
 // ExecResult 执行命令并返回完整的执行结果(阻塞)
@@ -474,25 +487,22 @@ func (c *Command) ExecResult() (*Result, error) {
 	// 命令执行结束时间
 	endTime := time.Now()
 
-	// 分类错误
-	classifiedErr := classifyError(err, c.getEffectiveTimeout())
-
 	// 获取命令的退出码
-	exitCode := GetExitCode(classifiedErr)
-
+	var exitCode int
+	if err != nil {
+		exitCode = -1
+	}
 	// 创建Result对象
 	result := &Result{
-		startTime:  startTime,                      // 命令开始时间
-		endTime:    endTime,                        // 命令结束时间
-		duration:   endTime.Sub(startTime),         // 命令执行时间
-		output:     output,                         // 命令输出
-		success:    err == nil,                     // 命令是否执行成功
-		exitCode:   exitCode,                       // 命令退出码
-		isTimeout:  IsTimeoutError(classifiedErr),  // 是否超时
-		isCanceled: IsCanceledError(classifiedErr), // 是否被取消
+		startTime: startTime,              // 命令开始时间
+		endTime:   endTime,                // 命令结束时间
+		duration:  endTime.Sub(startTime), // 命令执行时间
+		output:    output,                 // 命令输出
+		success:   err == nil,             // 命令是否执行成功
+		exitCode:  exitCode,               // 命令退出码
 	}
 
-	return result, classifiedErr
+	return result, judgeError(err, c)
 }
 
 // ExecAsync 异步执行命令(非阻塞)
@@ -508,7 +518,7 @@ func (c *Command) ExecAsync() error {
 	c.buildExecCmd()
 
 	err := c.execCmd.Start()
-	return classifyError(err, c.getEffectiveTimeout())
+	return judgeError(err, c)
 }
 
 // Wait 等待命令执行完成(仅在异步执行时有效)
@@ -525,7 +535,7 @@ func (c *Command) Wait() error {
 	// 清理资源
 	c.cleanup()
 
-	return classifyError(err, c.getEffectiveTimeout())
+	return judgeError(err, c)
 }
 
 // Cmd 获取底层的 exec.Cmd 对象

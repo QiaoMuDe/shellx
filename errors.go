@@ -1,4 +1,10 @@
-// Package shellx 定义了命令执行相关的错误类型和处理函数
+// Package shellx 错误处理模块
+// 本文件定义了 shellx 包中的错误类型、错误变量和错误处理函数，包括：
+//   - 预定义的错误变量（超时、取消、未启动等）
+//   - 错误消息常量定义
+//   - 智能错误判断和分类函数 judgeError
+//
+// 提供统一的错误处理机制，能够准确识别和格式化各种命令执行错误。
 package shellx
 
 import (
@@ -6,26 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"time"
-)
-
-// ErrorType 定义错误类型枚举
-type ErrorType int
-
-const (
-	ErrorUnknown   ErrorType = iota // 未知错误
-	ErrorTimeout                    // 超时错误
-	ErrorCanceled                   // 取消错误
-	ErrorExecution                  // 执行错误（命令执行失败）
-	ErrorSystem                     // 系统错误
 )
 
 // 预定义的错误变量
 var (
-	// ErrTimeout 表示命令执行超时
-	ErrTimeout = errors.New("command execution timeout")
-	// ErrCanceled 表示命令被取消
-	ErrCanceled = errors.New("command execution canceled")
 	// ErrAlreadyExecuted 表示命令已经执行过
 	ErrAlreadyExecuted = errors.New("command has already been executed")
 	// ErrNotStarted 表示命令尚未启动
@@ -34,110 +24,71 @@ var (
 	ErrNoProcess = errors.New("no process to operate")
 )
 
-// CommandError 包装命令执行错误，提供详细的错误信息和类型判断
-type CommandError struct {
-	Err             error         // 原始错误
-	Type            ErrorType     // 错误类型
-	ExitCode        int           // 命令退出码
-	TimeoutDuration time.Duration // 设置的超时时间
-}
+// 错误消息常量
+const (
+	// 超时和取消错误消息
+	msgTimeoutExceeded = "command execution timeout: %s exceeded the %v time limit" // 超时错误消息
+	msgCanceled        = "command execution canceled: %s was interrupted"           // 取消错误消息
 
-// Error 实现 error 接口，返回格式化的错误信息
-func (e *CommandError) Error() string {
-	switch e.Type {
-	case ErrorTimeout:
-		return fmt.Sprintf("command execution timeout: exceeded %v", e.TimeoutDuration)
-	case ErrorCanceled:
-		return "command execution canceled"
-	case ErrorExecution:
-		return fmt.Sprintf("command execution failed with exit code: %d", e.ExitCode)
-	case ErrorSystem:
-		return fmt.Sprintf("system error: %v", e.Err)
-	default:
-		return e.Err.Error()
-	}
-}
+	// exec 包错误消息
+	msgErrDot       = "cannot execute current directory (security restriction): %s" // 执行当前目录错误消息
+	msgErrNotFound  = "command not found: %s is not a valid command or executable"  // 命令未找到错误消息
+	msgErrWaitDelay = "command execution failed: %s process wait timeout occurred"  // 执行等待超时错误消息
 
-// Unwrap 实现错误解包，支持 errors.Is 和 errors.As
-func (e *CommandError) Unwrap() error {
-	return e.Err
-}
+	// 退出码和系统错误消息
+	msgExitCode    = "command execution failed: %s exited with code %d"      // 退出码错误消息
+	msgSystemError = "system error: %s encountered an unexpected error - %v" // 系统错误消息
+)
 
-// IsTimeoutError 判断是否为超时错误
-func IsTimeoutError(err error) bool {
-	var cmdErr *CommandError
-	if errors.As(err, &cmdErr) {
-		return cmdErr.Type == ErrorTimeout
-	}
-	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrTimeout)
-}
-
-// IsCanceledError 判断是否为取消错误
-func IsCanceledError(err error) bool {
-	var cmdErr *CommandError
-	if errors.As(err, &cmdErr) {
-		return cmdErr.Type == ErrorCanceled
-	}
-	return errors.Is(err, context.Canceled) || errors.Is(err, ErrCanceled)
-}
-
-// IsExecutionError 判断是否为命令执行错误
-func IsExecutionError(err error) bool {
-	var cmdErr *CommandError
-	if errors.As(err, &cmdErr) {
-		return cmdErr.Type == ErrorExecution
-	}
-	_, ok := err.(*exec.ExitError)
-	return ok
-}
-
-// GetExitCode 获取命令退出码，如果不是执行错误则返回 -1
-func GetExitCode(err error) int {
-	var cmdErr *CommandError
-	if errors.As(err, &cmdErr) {
-		return cmdErr.ExitCode
-	}
-
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		return exitErr.ExitCode()
-	}
-
-	return -1
-}
-
-// classifyError 分类错误并包装为 CommandError
-func classifyError(err error, timeoutDuration time.Duration) error {
+// judgeError 判断错误类型并返回对应的错误信息
+//
+// 参数:
+//   - err: 错误对象
+//   - c: Command 对象，用于获取用户上下文
+//
+// 返回值:
+//   - error: 返回对应的错误信息
+func judgeError(err error, c *Command) error {
 	if err == nil {
 		return nil
 	}
 
-	cmdErr := &CommandError{
-		Err:             err,
-		Type:            ErrorUnknown,
-		ExitCode:        -1,
-		TimeoutDuration: timeoutDuration,
+	// 获取命令字符串用于错误提示
+	var cmdStr string
+	if c != nil {
+		cmdStr = c.CmdStr()
 	}
 
-	// 检查是否为超时错误
-	if errors.Is(err, context.DeadlineExceeded) {
-		cmdErr.Type = ErrorTimeout
-		return cmdErr
+	// 检查是否为用户取消错误或超时错误
+	if c != nil && c.userCtx != nil {
+		ctxErr := c.userCtx.Err()
+		switch {
+		case errors.Is(ctxErr, context.DeadlineExceeded): // 超时错误
+			return fmt.Errorf(msgTimeoutExceeded, cmdStr, c.getEffectiveTimeout())
+
+		case errors.Is(ctxErr, context.Canceled): // 上下文取消错误
+			return fmt.Errorf(msgCanceled, cmdStr)
+		}
 	}
 
-	// 检查是否为取消错误
-	if errors.Is(err, context.Canceled) {
-		cmdErr.Type = ErrorCanceled
-		return cmdErr
+	// 检查是否为 exec 包错误
+	switch {
+	case errors.Is(err, exec.ErrDot): // 无法执行当前目录
+		return fmt.Errorf(msgErrDot, cmdStr)
+
+	case errors.Is(err, exec.ErrNotFound): // 命令未找到
+		return fmt.Errorf(msgErrNotFound, cmdStr)
+
+	case errors.Is(err, exec.ErrWaitDelay): // 管道关闭延迟错误
+		return fmt.Errorf(msgErrWaitDelay, cmdStr)
 	}
 
-	// 检查是否为命令执行错误
+	// 检查退出码错误
 	if exitErr, ok := err.(*exec.ExitError); ok {
-		cmdErr.Type = ErrorExecution
-		cmdErr.ExitCode = exitErr.ExitCode()
-		return cmdErr
+		exitCode := exitErr.ExitCode()
+		return fmt.Errorf(msgExitCode, cmdStr, exitCode)
 	}
 
 	// 其他系统错误
-	cmdErr.Type = ErrorSystem
-	return cmdErr
+	return fmt.Errorf(msgSystemError, cmdStr, err)
 }

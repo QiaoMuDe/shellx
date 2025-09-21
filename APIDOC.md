@@ -43,6 +43,12 @@ func (c *Command) WithStderr(stderr io.Writer) *Command
 func (c *Command) WithShell(shell ShellType) *Command
 ```
 
+#### 信息获取
+
+```go
+func (c *Command) CmdStr() string  // 获取命令字符串
+```
+
 #### 便捷函数
 
 ```go
@@ -78,6 +84,9 @@ func (c *Command) Signal(sig os.Signal) error
 func (c *Command) IsRunning() bool
 func (c *Command) GetPID() int
 func (c *Command) IsExecuted() bool
+
+// 信息获取
+func (c *Command) CmdStr() string
 ```
 
 ### Shell 类型支持
@@ -488,6 +497,22 @@ Args 获取命令参数列表
 
 **返回:**
 - []string: 命令参数列表
+
+#### func (*Command) CmdStr
+
+```go
+func (c *Command) CmdStr() string
+```
+
+CmdStr 获取命令字符串
+
+**返回:**
+- string: 命令字符串
+
+**说明:**
+- 如果 exec.Cmd 对象已构建，返回其 String() 方法的结果
+- 如果 exec.Cmd 对象未构建，返回原始命令字符串
+- 该方法可用于调试和日志记录
 
 #### func (*Command) Env
 

@@ -1,3 +1,10 @@
+// Package shellx 内部实现模块
+// 本文件包含 Command 结构体的内部实现方法，包括：
+//   - buildExecCmd: 延迟构建 exec.Cmd 对象，支持上下文和超时控制
+//   - cleanup: 资源清理函数，确保上下文取消函数被正确调用
+//   - getCmdStr: 命令字符串获取函数，支持原始字符串和参数拼接
+//
+// 这些方法为 Command 的核心功能提供底层支持。
 package shellx
 
 import (
@@ -13,12 +20,12 @@ import (
 //   - 该方法会根据上下文和超时时间来创建exec.Cmd对象.
 //   - 如果上下文设置了超时时间, 则会忽略超时参数.
 func (c *Command) buildExecCmd() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.execCmd != nil {
 		return // 已经构建过了
 	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 
 	// 根据实际情况选择创建方式，避免不必要的上下文使用
 	if c.userCtx != nil {
@@ -34,6 +41,7 @@ func (c *Command) buildExecCmd() {
 		// 只设置了超时，创建超时上下文
 		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 		c.cancel = cancel // 保存cancel函数用于资源清理
+		c.userCtx = ctx   // 将内部创建的上下文保存到userCtx，方便错误判断
 
 		if c.shellType != ShellNone {
 			cmdStr := c.getCmdStr()
