@@ -124,10 +124,13 @@ func TestNewCmdStr(t *testing.T) {
 func TestWithWorkDir(t *testing.T) {
 	cmd := NewCmd("pwd")
 
+	// 获取系统临时目录，确保在所有平台上都存在
+	tempDir := os.TempDir()
+
 	t.Run("设置工作目录", func(t *testing.T) {
-		cmd.WithWorkDir("/tmp")
-		if cmd.WorkDir() != "/tmp" {
-			t.Errorf("期望工作目录为 '/tmp', 实际为 '%s'", cmd.WorkDir())
+		cmd.WithWorkDir(tempDir)
+		if cmd.WorkDir() != tempDir {
+			t.Errorf("期望工作目录为 '%s', 实际为 '%s'", tempDir, cmd.WorkDir())
 		}
 	})
 
@@ -140,7 +143,12 @@ func TestWithWorkDir(t *testing.T) {
 	})
 
 	t.Run("链式调用", func(t *testing.T) {
-		result := cmd.WithWorkDir("/home")
+		// 使用用户主目录，在所有平台上都应该存在
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			t.Skip("无法获取用户主目录，跳过测试")
+		}
+		result := cmd.WithWorkDir(homeDir)
 		if result != cmd {
 			t.Error("WithWorkDir应该返回自身以支持链式调用")
 		}
@@ -438,6 +446,8 @@ func TestExecOnce(t *testing.T) {
 // TestConcurrentAccess 测试并发访问安全性
 func TestConcurrentAccess(t *testing.T) {
 	cmd := NewCmd("echo", "test")
+	// 使用系统临时目录，确保在所有平台上都存在
+	tempDir := os.TempDir()
 
 	var wg sync.WaitGroup
 	const goroutines = 10
@@ -448,7 +458,7 @@ func TestConcurrentAccess(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			cmd.WithEnv("TEST_VAR", "value").
-				WithWorkDir("/tmp").
+				WithWorkDir(tempDir).
 				WithTimeout(5 * time.Second)
 		}(i)
 	}
@@ -456,8 +466,8 @@ func TestConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// 验证最终状态
-	if cmd.WorkDir() != "/tmp" {
-		t.Errorf("期望工作目录为 '/tmp', 实际为 '%s'", cmd.WorkDir())
+	if cmd.WorkDir() != tempDir {
+		t.Errorf("期望工作目录为 '%s', 实际为 '%s'", tempDir, cmd.WorkDir())
 	}
 
 	if cmd.Timeout() != 5*time.Second {
@@ -467,8 +477,10 @@ func TestConcurrentAccess(t *testing.T) {
 
 // TestGetters 测试各种getter方法
 func TestGetters(t *testing.T) {
+	// 使用系统临时目录，确保在所有平台上都存在
+	tempDir := os.TempDir()
 	cmd := NewCmd("git", "status", "--porcelain").
-		WithWorkDir("/home").
+		WithWorkDir(tempDir).
 		WithEnv("GIT_CONFIG", "test").
 		WithTimeout(10 * time.Second).
 		WithShell(ShellBash)
@@ -493,8 +505,8 @@ func TestGetters(t *testing.T) {
 	})
 
 	t.Run("WorkDir getter", func(t *testing.T) {
-		if cmd.WorkDir() != "/home" {
-			t.Errorf("期望工作目录为 '/home', 实际为 '%s'", cmd.WorkDir())
+		if cmd.WorkDir() != tempDir {
+			t.Errorf("期望工作目录为 '%s', 实际为 '%s'", tempDir, cmd.WorkDir())
 		}
 	})
 
