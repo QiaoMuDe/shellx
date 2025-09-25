@@ -71,7 +71,7 @@ func NewCmd(name string, args ...string) *Command {
 		name:      name,
 		args:      args,
 		envs:      os.Environ(), // 默认继承父进程的环境变量
-		shellType: ShellDefault, // 默认根据操作系统自动选择shell
+		shellType: ShellDef1,    // 默认根据操作系统自动选择shell
 		mu:        sync.RWMutex{},
 	}
 }
