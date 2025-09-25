@@ -12,7 +12,8 @@
 //   - ShellPowerShell: Windows PowerShell
 //   - ShellPwsh: PowerShell Core (跨平台)
 //   - ShellNone: 直接执行命令，不使用shell
-//   - ShellDef1: 根据操作系统自动选择默认shell
+//   - ShellDef1: 根据操作系统自动选择默认shell(Windows系统默认为cmd, 其他系统默认为sh)
+//   - ShellDef2: 根据操作系统自动选择默认shell(Windows系统默认为powershell, 其他系统默认为sh)
 package shellx
 
 import (
