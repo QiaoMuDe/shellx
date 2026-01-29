@@ -533,10 +533,8 @@ func (c *Command) ExecResult() (*Result, error) {
 	endTime := time.Now()
 
 	// 获取命令的退出码
-	var exitCode int
-	if err != nil {
-		exitCode = -1
-	}
+	exitCode := extractExitCode(err)
+
 	// 创建Result对象
 	result := &Result{
 		startTime: startTime,              // 命令开始时间
@@ -583,6 +581,27 @@ func (c *Command) Wait() error {
 	return judgeError(err, c)
 }
 
+// WaitWithCode 等待命令执行完成并返回退出码(仅在异步执行时有效)
+//
+// 返回:
+//   - int: 命令退出码(0表示成功，-1表示无法提取的执行错误，其他值表示命令返回的退出码)
+//   - error: 错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
+func (c *Command) WaitWithCode() (int, error) {
+	if c.execCmd == nil {
+		return -1, ErrNotStarted
+	}
+
+	err := c.execCmd.Wait()
+
+	// 清理资源
+	c.cleanup()
+
+	// 获取命令的退出码
+	exitCode := extractExitCode(err)
+
+	return exitCode, judgeError(err, c)
+}
+
 // Cmd 获取底层的 exec.Cmd 对象
 //
 // 返回:
@@ -621,6 +640,10 @@ func (c *Command) Signal(sig os.Signal) error {
 
 // IsRunning 检查进程是否还在运行
 //
+// 注意: 此方法提供基本的进程状态检查，可能不是100%准确，
+// 特别是在Windows系统上可能存在权限问题。
+// 对于精确的进程状态管理，建议使用Wait或WaitWithCode方法。
+//
 // 返回:
 //   - bool: 是否在运行
 func (c *Command) IsRunning() bool {
@@ -628,8 +651,9 @@ func (c *Command) IsRunning() bool {
 		return false
 	}
 
+	// 如果ProcessState不为nil，表示进程已经结束
 	if c.execCmd.ProcessState != nil {
-		return false // 进程已结束
+		return false
 	}
 
 	// 尝试发送信号0检查进程是否存在

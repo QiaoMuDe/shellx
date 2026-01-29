@@ -272,3 +272,36 @@ func validateEnvVar(env string) error {
 
 	return nil
 }
+
+// ExecCode 执行命令并返回退出码(阻塞)
+//
+// 参数:
+//   - name: 命令名
+//   - args: 命令参数
+//
+// 返回:
+//   - int: 退出码
+//   - error: 错误信息
+func ExecCode(name string, args ...string) (int, error) {
+	result, err := NewCmd(name, args...).ExecResult()
+	if err != nil {
+		return -1, err
+	}
+	return result.Code(), nil
+}
+
+// ExecCodeStr 字符串方式执行命令并返回退出码(阻塞)
+//
+// 参数:
+//   - cmdStr: 命令字符串
+//
+// 返回:
+//   - int: 退出码
+//   - error: 错误信息
+func ExecCodeStr(cmdStr string) (int, error) {
+	result, err := NewCmdStr(cmdStr).ExecResult()
+	if err != nil {
+		return -1, err
+	}
+	return result.Code(), nil
+}

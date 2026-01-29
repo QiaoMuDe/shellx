@@ -97,3 +97,24 @@ func (c *Command) getCmdStr() string {
 		return fmt.Sprintf("%s %s", c.name, strings.Join(c.args, " "))
 	}
 }
+
+// extractExitCode 从错误中提取退出码
+//
+// 参数:
+//   - err: 错误对象
+//
+// 返回:
+//   - int: 退出码(0表示成功，-1表示无法提取的执行错误，其他值表示命令返回的退出码)
+func extractExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+
+	// 尝试从ExitError中提取真实的退出码
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return exitErr.ExitCode()
+	}
+
+	// 其他类型的错误（如命令不存在、超时等）返回-1
+	return -1
+}

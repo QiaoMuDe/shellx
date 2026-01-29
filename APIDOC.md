@@ -63,6 +63,10 @@ func ExecT(timeout time.Duration, name string, args ...string) error
 func ExecStrT(timeout time.Duration, cmdStr string) error
 func ExecOutT(timeout time.Duration, name string, args ...string) ([]byte, error)
 func ExecOutStrT(timeout time.Duration, cmdStr string) ([]byte, error)
+
+// 带退出码的执行函数
+func ExecCode(name string, args ...string) (int, error)
+func ExecCodeStr(cmdStr string) (int, error)
 ```
 
 #### 命令执行
@@ -77,6 +81,7 @@ func (c *Command) ExecResult() (*Result, error)
 // 异步执行
 func (c *Command) ExecAsync() error
 func (c *Command) Wait() error
+func (c *Command) WaitWithCode() (int, error)
 
 // 进程控制
 func (c *Command) Kill() error
@@ -186,6 +191,10 @@ err := shellx.ExecT(5*time.Second, "sleep", "10")                    // 5秒超�
 err := shellx.ExecStrT(3*time.Second, "ping google.com")       // 字符串方式，3秒超时
 output, err := shellx.ExecOutT(2*time.Second, "curl", "example.com") // 返回输出，2秒超时
 output, err := shellx.ExecOutStrT(1*time.Second, "date")             // 字符串方式，返回输出，1秒超时
+
+// 带退出码的执行函数
+exitCode, err := shellx.ExecCode("ls", "/nonexistent")  // 执行命令并返回退出码
+exitCode, err := shellx.ExecCodeStr("ls /nonexistent")  // 字符串方式执行并返回退出码
 ```
 
 ## 高级用法
@@ -410,6 +419,37 @@ ExecOutStrT 执行命令并返回合并后的输出(阻塞，带超时)
 
 **返回:**
 - []byte: 合并后的输出
+- error: 错误信息
+
+### func ExecCode
+
+```go
+func ExecCode(name string, args ...string) (int, error)
+```
+
+ExecCode 执行命令并返回退出码(阻塞)
+
+**参数:**
+- name: 命令名
+- args: 命令参数
+
+**返回:**
+- int: 退出码
+- error: 错误信息
+
+### func ExecCodeStr
+
+```go
+func ExecCodeStr(cmdStr string) (int, error)
+```
+
+ExecCodeStr 字符串方式执行命令并返回退出码(阻塞)
+
+**参数:**
+- cmdStr: 命令字符串
+
+**返回:**
+- int: 退出码
 - error: 错误信息
 
 ### func ParseCmd
@@ -873,6 +913,18 @@ func (c *Command) Wait() error
 Wait 等待命令执行完成(仅在异步执行时有效)
 
 **返回:**
+- error: 错误信息
+
+#### func (*Command) WaitWithCode
+
+```go
+func (c *Command) WaitWithCode() (int, error)
+```
+
+WaitWithCode 等待命令执行完成并返回退出码(仅在异步执行时有效)
+
+**返回:**
+- int: 命令退出码(0表示成功，-1表示无法提取的执行错误，其他值表示命令返回的退出码)
 - error: 错误信息
 
 ### type Result
