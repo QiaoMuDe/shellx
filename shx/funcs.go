@@ -3,6 +3,7 @@ package shx
 import (
 	"context"
 	"io"
+	"os"
 	"time"
 )
 
@@ -19,6 +20,25 @@ import (
 //	err := shx.Run("echo hello")
 func Run(cmd string) error {
 	return New(cmd).Exec()
+}
+
+// RunToTerminal 执行命令并输出到终端
+//
+// 参数：
+//   - cmd: 命令字符串
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	err := shx.RunToTerminal("echo hello")
+func RunToTerminal(cmd string) error {
+	return New(cmd).
+		WithStdin(os.Stdin).
+		WithStdout(os.Stdout).
+		WithStderr(os.Stderr).
+		Exec()
 }
 
 // Out 执行并获取输出

@@ -16,6 +16,14 @@ func TestRun(t *testing.T) {
 	_ = err // 避免 errcheck 错误
 }
 
+func TestRunToTerminal(t *testing.T) {
+	err := RunToTerminal("echo hello")
+	if err != nil {
+		t.Fatalf("RunToTerminal failed: %v", err)
+	}
+	_ = err // 避免 errcheck 错误
+}
+
 func TestOut(t *testing.T) {
 	output, err := Out("echo world")
 	if err != nil {
@@ -209,3 +217,7 @@ func BenchmarkOut(b *testing.B) {
 		_, _ = Out("echo test")
 	}
 }
+
+// func TestExecT(t *testing.T) {
+// 	RunToTerminal("fck ls -c -i")
+// }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"mvdan.cc/sh/v3/interp"
 )
@@ -161,10 +160,12 @@ func (s *Shx) execWithContext(ctx context.Context) error {
 //   - *interp.Runner: 执行器
 //   - error: 构建错误
 func (s *Shx) buildRunner() (*interp.Runner, error) {
-	var stdin io.Reader = os.Stdin
-	var stdout io.Writer = os.Stdout
-	var stderr io.Writer = os.Stderr
+	// 默认不输出到终端，除非用户明确指定
+	var stdin io.Reader = nil
+	var stdout io.Writer = nil
+	var stderr io.Writer = nil
 
+	// 只有当用户明确设置时才使用
 	if s.stdin != nil && s.stdin.reader != nil {
 		if r, ok := s.stdin.reader.(io.Reader); ok {
 			stdin = r
