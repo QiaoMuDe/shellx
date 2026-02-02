@@ -217,7 +217,3 @@ func BenchmarkOut(b *testing.B) {
 		_, _ = Out("echo test")
 	}
 }
-
-// func TestExecT(t *testing.T) {
-// 	RunToTerminal("fck ls -c -i")
-// }
