@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"mvdan.cc/sh/v3/interp"
 )
@@ -132,6 +133,11 @@ func (s *Shx) buildContext() context.Context {
 // 返回:
 //   - error: 执行错误
 func (s *Shx) execWithContext(ctx context.Context) error {
+	// 检查空命令
+	if strings.TrimSpace(s.raw) == "" {
+		return fmt.Errorf("command cannot be empty")
+	}
+
 	// 确保在退出时调用 cancel 函数
 	if s.cancel != nil {
 		defer s.cancel()

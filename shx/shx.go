@@ -3,6 +3,7 @@ package shx
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"mvdan.cc/sh/v3/expand"
@@ -22,6 +23,58 @@ import (
 //	cmd := shx.New("echo hello world")
 //	cmd := shx.New("ls -la | grep .go")
 func New(cmdStr string) *Shx {
+	return &Shx{
+		raw:    cmdStr,
+		parser: syntax.NewParser(),
+		env:    expand.ListEnviron(os.Environ()...),
+		dir:    mustGetwd(),
+	}
+}
+
+// NewArgs 从命令名和可变参数创建命令
+//
+// 参数:
+//   - cmd: 命令名
+//   - args: 可变参数列表
+//
+// 返回:
+//   - *Shx: 命令对象
+//
+// 示例:
+//
+//	cmd := shx.NewArgs("ls", "-la", "/tmp")
+//	cmd := shx.NewArgs("git", "commit", "-m", "message")
+func NewArgs(cmd string, args ...string) *Shx {
+	// 构建命令字符串
+	cmdStr := cmd
+	for _, arg := range args {
+		cmdStr += " " + arg
+	}
+
+	return &Shx{
+		raw:    cmdStr,
+		parser: syntax.NewParser(),
+		env:    expand.ListEnviron(os.Environ()...),
+		dir:    mustGetwd(),
+	}
+}
+
+// NewCmds 从命令切片创建命令
+//
+// 参数:
+//   - cmds: 命令切片，每个元素是一个完整的命令部分
+//
+// 返回:
+//   - *Shx: 命令对象
+//
+// 示例:
+//
+//	cmd := shx.NewCmds([]string{"ls", "-la", "|", "grep", ".go"})
+//	cmd := shx.NewCmds([]string{"echo", "hello", ">", "output.txt"})
+func NewCmds(cmds []string) *Shx {
+	// 用空格连接命令部分
+	cmdStr := strings.Join(cmds, " ")
+
 	return &Shx{
 		raw:    cmdStr,
 		parser: syntax.NewParser(),
