@@ -463,12 +463,24 @@ cmd := shx.New("command").
 #### 批量环境变量
 
 ```go
-// 批量设置环境变量
+// 方式1: 使用 map (WithEnvMap)
 cmd := shx.New("command").
-    WithEnvs(map[string]string{
+    WithEnvMap(map[string]string{
         "KEY1": "value1",
         "KEY2": "value2",
     })
+
+// 方式2: 使用切片 (WithEnvs)
+cmd := shx.New("command").
+    WithEnvs([]string{
+        "KEY1=value1",
+        "KEY2=value2",
+    })
+
+// 方式3: 配合 os.Environ() 使用
+envs := os.Environ()
+envs = append(envs, "CUSTOM_VAR=my_value")
+cmd := shx.New("command").WithEnvs(envs)
 ```
 
 ## 📄 许可证
