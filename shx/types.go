@@ -41,6 +41,7 @@ package shx
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync/atomic"
 	"time"
 
@@ -55,11 +56,11 @@ type Shx struct {
 	parser *syntax.Parser // 语法解析器 (可自定义)
 
 	// 执行环境
-	dir    string           // 工作目录
-	env    expand.Environ   // 环境变量
-	stdin  *expandEnvReader // 标准输入
-	stdout *expandEnvWriter // 标准输出
-	stderr *expandEnvWriter // 标准错误
+	dir    string         // 工作目录
+	env    expand.Environ // 环境变量
+	stdin  io.Reader      // 标准输入
+	stdout io.Writer      // 标准输出
+	stderr io.Writer      // 标准错误
 
 	// 上下文和超时
 	ctx     context.Context    // 用户上下文
@@ -68,16 +69,6 @@ type Shx struct {
 
 	// 执行状态 (使用 atomic.Bool 实现最小并发保护)
 	executed atomic.Bool // 是否已执行
-}
-
-// expandEnvReader 包装 io.Reader 以适配 expand 包
-type expandEnvReader struct {
-	reader interface{}
-}
-
-// expandEnvWriter 包装 io.Writer 以适配 expand 包
-type expandEnvWriter struct {
-	writer interface{}
 }
 
 // ExitStatus 包装退出状态错误

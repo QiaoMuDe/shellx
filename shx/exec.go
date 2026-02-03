@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strings"
 
 	"mvdan.cc/sh/v3/interp"
@@ -45,8 +44,8 @@ func (s *Shx) Exec() error {
 //   - 如果需要区分 stdout 和 stderr, 请使用 WithStdout 和 WithStderr 自定义
 func (s *Shx) ExecOutput() ([]byte, error) {
 	var buf bytes.Buffer
-	s.stdout = &expandEnvWriter{writer: &buf}
-	s.stderr = &expandEnvWriter{writer: &buf}
+	s.stdout = &buf
+	s.stderr = &buf
 
 	err := s.Exec()
 	return buf.Bytes(), err
@@ -90,8 +89,8 @@ func (s *Shx) ExecContextOutput(ctx context.Context) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	s.stdout = &expandEnvWriter{writer: &buf}
-	s.stderr = &expandEnvWriter{writer: &buf}
+	s.stdout = &buf
+	s.stderr = &buf
 
 	err := s.ExecContext(ctx)
 	return buf.Bytes(), err
@@ -99,23 +98,23 @@ func (s *Shx) ExecContextOutput(ctx context.Context) ([]byte, error) {
 
 // buildContext 构建执行上下文
 //
-// 优先级:
-//  1. 用户通过 WithContext 设置的上下文
-//  2. 用户通过 WithTimeout 设置的超时 (创建新上下文)
-//  3. 默认背景上下文
+// 严格优先级:
+// 1. 用户通过 WithContext 设置的上下文 (完全覆盖 WithTimeout 设置)
+// 2. 用户通过 WithTimeout 设置的超时 (创建新上下文)
+// 3. 默认背景上下文
 func (s *Shx) buildContext() context.Context {
-	// 优先使用用户设置的上下文
+	// 如果之前有cancel函数，先调用清理资源
+	if s.cancel != nil {
+		s.cancel()
+		s.cancel = nil
+	}
+
+	// 严格优先级：用户上下文完全覆盖超时设置
 	if s.ctx != nil {
-		if s.timeout > 0 {
-			// 同时设置超时
-			ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
-			s.cancel = cancel
-			return ctx
-		}
 		return s.ctx
 	}
 
-	// 只设置超时
+	// 只有在没有设置用户上下文时才使用超时
 	if s.timeout > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
 		s.cancel = cancel
@@ -166,34 +165,10 @@ func (s *Shx) execWithContext(ctx context.Context) error {
 //   - *interp.Runner: 执行器
 //   - error: 构建错误
 func (s *Shx) buildRunner() (*interp.Runner, error) {
-	// 默认不输出到终端，除非用户明确指定
-	var stdin io.Reader = nil
-	var stdout io.Writer = nil
-	var stderr io.Writer = nil
-
-	// 只有当用户明确设置时才使用
-	if s.stdin != nil && s.stdin.reader != nil {
-		if r, ok := s.stdin.reader.(io.Reader); ok {
-			stdin = r
-		}
-	}
-
-	if s.stdout != nil && s.stdout.writer != nil {
-		if w, ok := s.stdout.writer.(io.Writer); ok {
-			stdout = w
-		}
-	}
-
-	if s.stderr != nil && s.stderr.writer != nil {
-		if w, ok := s.stderr.writer.(io.Writer); ok {
-			stderr = w
-		}
-	}
-
 	opts := []interp.RunnerOption{
 		interp.Env(s.env),
 		interp.Dir(s.dir),
-		interp.StdIO(stdin, stdout, stderr),
+		interp.StdIO(s.stdin, s.stdout, s.stderr),
 	}
 
 	return interp.New(opts...)

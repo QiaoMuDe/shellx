@@ -148,7 +148,7 @@ func (s *Shx) WithStdin(r io.Reader) *Shx {
 		panic("stdin cannot be nil")
 	}
 
-	s.stdin = &expandEnvReader{reader: r}
+	s.stdin = r
 	return s
 }
 
@@ -172,7 +172,7 @@ func (s *Shx) WithStdout(w io.Writer) *Shx {
 		panic("stdout cannot be nil")
 	}
 
-	s.stdout = &expandEnvWriter{writer: w}
+	s.stdout = w
 	return s
 }
 
@@ -196,7 +196,7 @@ func (s *Shx) WithStderr(w io.Writer) *Shx {
 		panic("stderr cannot be nil")
 	}
 
-	s.stderr = &expandEnvWriter{writer: w}
+	s.stderr = w
 	return s
 }
 
@@ -234,7 +234,7 @@ func (s *Shx) WithTimeout(d time.Duration) *Shx {
 // 注意:
 //   - 如果命令已经执行过, 会 panic
 //   - 如果 ctx 为 nil, 会 panic
-//   - 设置的上下文优先级高于 WithTimeout
+//   - 设置的上下文会完全覆盖 WithTimeout 设置的超时
 func (s *Shx) WithContext(ctx context.Context) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
