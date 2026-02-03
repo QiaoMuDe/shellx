@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"mvdan.cc/sh/v3/expand"
@@ -78,6 +79,7 @@ func (s *Shx) WithEnv(key, value string) *Shx {
 	// 获取当前环境变量列表
 	var envList []string
 	s.env.Each(func(name string, vr expand.Variable) bool {
+		// 剔除已存在的环境变量, 保留其他环境变量
 		if name != key {
 			envList = append(envList, fmt.Sprintf("%s=%s", name, vr.String()))
 		}
@@ -91,7 +93,7 @@ func (s *Shx) WithEnv(key, value string) *Shx {
 	return s
 }
 
-// WithEnvs 批量设置环境变量
+// WithEnvMap 批量设置环境变量
 //
 // 参数:
 //   - envs: 环境变量映射 (key-value)
@@ -101,7 +103,7 @@ func (s *Shx) WithEnv(key, value string) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-func (s *Shx) WithEnvs(envs map[string]string) *Shx {
+func (s *Shx) WithEnvMap(envs map[string]string) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
 	}
@@ -122,6 +124,54 @@ func (s *Shx) WithEnvs(envs map[string]string) *Shx {
 		if key != "" {
 			envList = append(envList, fmt.Sprintf("%s=%s", key, value))
 		}
+	}
+
+	s.env = expand.ListEnviron(envList...)
+	return s
+}
+
+// WithEnvs 批量设置环境变量
+//
+// 参数:
+//   - envs: 环境变量切片, 每个元素格式为 "key=value"
+//
+// 返回:
+//   - *Shx: 命令对象 (支持链式调用)
+//
+// 注意:
+//   - 如果命令已经执行过, 会 panic
+//   - 格式错误的项会被忽略
+//   - 同名的变量, 后出现的会覆盖先出现的
+func (s *Shx) WithEnvs(envs []string) *Shx {
+	if s.executed.Load() {
+		panic("shx has already been executed")
+	}
+
+	if len(envs) == 0 {
+		return s
+	}
+
+	// 解析新环境变量为 map 用于去重和覆盖
+	newEnvs := make(map[string]string, len(envs))
+	for _, env := range envs {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) == 2 && parts[0] != "" {
+			newEnvs[parts[0]] = parts[1]
+		}
+	}
+
+	// 合并: 保留旧变量, 新变量覆盖同名的
+	var envList []string
+	s.env.Each(func(name string, vr expand.Variable) bool {
+		if _, exists := newEnvs[name]; !exists {
+			envList = append(envList, fmt.Sprintf("%s=%s", name, vr.String()))
+		}
+		return true
+	})
+
+	// 添加新变量
+	for key, value := range newEnvs {
+		envList = append(envList, fmt.Sprintf("%s=%s", key, value))
 	}
 
 	s.env = expand.ListEnviron(envList...)

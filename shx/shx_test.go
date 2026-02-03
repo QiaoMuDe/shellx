@@ -146,7 +146,7 @@ func TestShxWithEnvs(t *testing.T) {
 		"VAR1": "value1",
 		"VAR2": "value2",
 	}
-	cmd := New("echo $VAR1 $VAR2").WithEnvs(envs)
+	cmd := New("echo $VAR1 $VAR2").WithEnvMap(envs)
 
 	output, err := cmd.ExecOutput()
 	if err != nil {

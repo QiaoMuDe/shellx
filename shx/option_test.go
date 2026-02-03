@@ -67,7 +67,7 @@ func TestWithEnvs(t *testing.T) {
 	}
 
 	// 测试批量设置环境变量
-	result := cmd.WithEnvs(envs)
+	result := cmd.WithEnvMap(envs)
 	if result == nil {
 		t.Fatal("WithEnvs returned nil")
 	}

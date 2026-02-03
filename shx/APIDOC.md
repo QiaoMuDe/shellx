@@ -652,13 +652,13 @@ func (s *Shx) WithEnv(key, value string) *Shx
 
 ---
 
-#### WithEnvs
+#### WithEnvMap
 
 ```go
-func (s *Shx) WithEnvs(envs map[string]string) *Shx
+func (s *Shx) WithEnvMap(envs map[string]string) *Shx
 ```
 
-批量设置环境变量
+批量设置环境变量 (map 方式)
 
 **参数:**
 - `envs`: 环境变量映射 (key-value)
@@ -668,6 +668,55 @@ func (s *Shx) WithEnvs(envs map[string]string) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
+- 同名的变量, 后遍历的会覆盖先遍历的 (map 遍历顺序不确定)
+
+**示例:**
+
+```go
+cmd := shx.New("echo $FOO $BAR").
+    WithEnvMap(map[string]string{
+        "FOO": "hello",
+        "BAR": "world",
+    })
+```
+
+---
+
+#### WithEnvs
+
+```go
+func (s *Shx) WithEnvs(envs []string) *Shx
+```
+
+批量设置环境变量 (切片方式)
+
+**参数:**
+- `envs`: 环境变量切片, 每个元素格式为 `"key=value"`
+
+**返回:**
+- `*Shx`: 命令对象 (支持链式调用)
+
+**注意:**
+- 如果命令已经执行过, 会 panic
+- 格式错误的项会被忽略 (缺少 `=` 或 key 为空)
+- 同名的变量, 后出现的会覆盖先出现的
+- 新变量会覆盖旧环境中的同名变量
+
+**示例:**
+
+```go
+// 使用字符串切片
+cmd := shx.New("echo $PATH").
+    WithEnvs([]string{
+        "PATH=/usr/local/bin:/usr/bin",
+        "HOME=/home/user",
+    })
+
+// 配合 os.Environ() 使用
+envs := os.Environ()
+envs = append(envs, "CUSTOM_VAR=value")
+cmd := shx.New("env").WithEnvs(envs)
+```
 
 ---
 
