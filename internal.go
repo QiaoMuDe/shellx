@@ -18,11 +18,9 @@ import (
 //
 // 注意:
 //   - 该方法会根据上下文和超时时间来创建exec.Cmd对象.
-//   - 如果上下文设置了超时时间, 则会忽略超时参数.
+//   - 如果上下文设置了超时时间, 则会忽略timeout参数.
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) buildExecCmd() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.execCmd != nil {
 		return // 已经构建过了
 	}
@@ -117,4 +115,29 @@ func extractExitCode(err error) int {
 
 	// 其他类型的错误（如命令不存在、超时等）返回-1
 	return -1
+}
+
+// validateEnvVar 验证环境变量格式
+//
+// 参数:
+//   - env: 环境变量字符串，格式为 "key=value"
+//
+// 返回:
+//   - error: 错误信息
+func validateEnvVar(env string) error {
+	if strings.TrimSpace(env) == "" {
+		return fmt.Errorf("environment variable cannot be empty")
+	}
+
+	parts := strings.SplitN(env, "=", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid environment variable format, expected 'key=value': %s", env)
+	}
+
+	key := strings.TrimSpace(parts[0])
+	if key == "" {
+		return fmt.Errorf("environment variable key cannot be empty: %s", env)
+	}
+
+	return nil
 }

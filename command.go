@@ -3,7 +3,7 @@
 //
 // Command 结构体采用一体化设计，集配置、构建、执行于一体，支持：
 //   - 链式配置：WithWorkDir、WithEnv、WithTimeout、WithContext 等
-//   - 同步执行：Exec、ExecOutput、ExecStdout、ExecResult
+//   - 同步执行：Exec、ExecOutput、ExecStdout
 //   - 异步执行：ExecAsync、Wait
 //   - 进程控制：Kill、Signal、IsRunning、GetPID
 //   - 状态管理：IsExecuted（确保命令只执行一次）
@@ -18,13 +18,18 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 )
 
 // Command 命令对象 - 集配置、构建、执行于一体
+//
+// 注意事项:
+//   - Command 对象的配置方法 (WithXxx) 不是并发安全的，不要在多个 goroutine 中并发配置
+//   - 每个 Command 对象只能执行一次，重复执行会返回错误
+//   - 执行方法是并发安全的，使用 atomic.Bool 防止重复执行
+//   - 属性获取方法不是并发安全的，不要在多个 goroutine 中并发调用
 type Command struct {
 	// 基本命令配置
 	shellType ShellType // shell类型
@@ -47,7 +52,6 @@ type Command struct {
 	execCmd *exec.Cmd          // 真正的exec.Cmd对象（延迟创建）
 	cancel  context.CancelFunc // 超时上下文的取消函数
 	execOne atomic.Bool        // 确保只执行一次
-	mu      sync.RWMutex       // 保护配置字段的并发安全
 }
 
 // ############################################
@@ -77,7 +81,6 @@ func NewCmd(name string, args ...string) *Command {
 		args:      args,
 		envs:      os.Environ(), // 默认继承父进程的环境变量
 		shellType: ShellDef1,    // 默认根据操作系统自动选择shell
-		mu:        sync.RWMutex{},
 	}
 }
 
@@ -137,10 +140,10 @@ func NewCmdStr(cmdStr string) *Command {
 //
 // 返回：
 //   - *Command: 命令对象
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithWorkDir(dir string) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if dir == "" {
 		return c
 	}
@@ -173,10 +176,8 @@ func (c *Command) WithWorkDir(dir string) *Command {
 // 注意:
 //   - 该方法会验证key是否为空, 如果为空则忽略。
 //   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithEnv(key, value string) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.envs == nil {
 		c.envs = os.Environ()
 	}
@@ -198,10 +199,8 @@ func (c *Command) WithEnv(key, value string) *Command {
 // 注意:
 //   - 该方法会验证环境变量格式，只添加验证通过的环境变量。
 //   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithEnvs(envs []string) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if len(envs) == 0 {
 		return c
 	}
@@ -233,10 +232,8 @@ func (c *Command) WithEnvs(envs []string) *Command {
 // 注意:
 //   - 该方法会验证超时时间是否小于等于0, 如果小于等于0则忽略。
 //   - 该超时时间优先级低于上下文设置的超时时间.
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithTimeout(timeout time.Duration) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// 超时大于0时才设置
 	if timeout > 0 {
 		c.timeout = timeout
@@ -255,10 +252,8 @@ func (c *Command) WithTimeout(timeout time.Duration) *Command {
 // 注意:
 //   - 该方法会验证上下文是否为空，如果为空则panic.
 //   - 该上下文会覆盖之前设置的超时时间.
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithContext(ctx context.Context) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if ctx == nil {
 		panic("context cannot be nil")
 	}
@@ -273,10 +268,10 @@ func (c *Command) WithContext(ctx context.Context) *Command {
 //
 // 返回：
 //   - *Command: 命令对象
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStdin(stdin io.Reader) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if stdin == nil {
 		panic("stdin cannot be nil")
 	}
@@ -291,10 +286,10 @@ func (c *Command) WithStdin(stdin io.Reader) *Command {
 //
 // 返回：
 //   - *Command: 命令对象
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStdout(stdout io.Writer) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if stdout == nil {
 		panic("stdout cannot be nil")
 	}
@@ -309,10 +304,10 @@ func (c *Command) WithStdout(stdout io.Writer) *Command {
 //
 // 返回：
 //   - *Command: 命令对象
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStderr(stderr io.Writer) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if stderr == nil {
 		panic("stderr cannot be nil")
 	}
@@ -327,10 +322,10 @@ func (c *Command) WithStderr(stderr io.Writer) *Command {
 //
 // 返回：
 //   - *Command: 命令对象
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithShell(shell ShellType) *Command {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.shellType = shell
 	return c
 }
@@ -343,9 +338,10 @@ func (c *Command) WithShell(shell ShellType) *Command {
 //
 // 返回:
 //   - ShellType: shell类型
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) ShellType() ShellType {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.shellType
 }
 
@@ -353,9 +349,10 @@ func (c *Command) ShellType() ShellType {
 //
 // 返回:
 //   - string: 原始命令字符串
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) Raw() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.raw
 }
 
@@ -363,9 +360,10 @@ func (c *Command) Raw() string {
 //
 // 返回:
 //   - string: 命令名称
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) Name() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.name
 }
 
@@ -373,9 +371,11 @@ func (c *Command) Name() string {
 //
 // 返回:
 //   - []string: 命令参数列表
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
+//   - 返回的是参数的副本，修改返回值不会影响原始对象
 func (c *Command) Args() []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	tempArgs := make([]string, len(c.args))
 	copy(tempArgs, c.args)
 	return tempArgs
@@ -397,9 +397,10 @@ func (c *Command) CmdStr() string {
 //
 // 返回:
 //   - string: 命令执行目录
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) WorkDir() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.dir
 }
 
@@ -407,9 +408,11 @@ func (c *Command) WorkDir() string {
 //
 // 返回:
 //   - []string: 命令环境变量列表
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
+//   - 返回的是环境变量的副本，修改返回值不会影响原始对象
 func (c *Command) Env() []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	tempEnv := make([]string, len(c.envs))
 	copy(tempEnv, c.envs)
 	return tempEnv
@@ -419,9 +422,10 @@ func (c *Command) Env() []string {
 //
 // 返回:
 //   - time.Duration: 命令执行超时时间
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) Timeout() time.Duration {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.timeout
 }
 
@@ -489,63 +493,6 @@ func (c *Command) ExecStdout() ([]byte, error) {
 
 	output, err := c.execCmd.Output()
 	return output, judgeError(err, c)
-}
-
-// ExecResult 执行命令并返回完整的执行结果(阻塞)
-//
-// 使用示例:
-//
-//	result, err := cmd.ExecResult()
-//	if err != nil {
-//	    if IsTimeoutError(err) {
-//	        log.Printf("Command timeout: %v", err)
-//	    } else if IsCanceledError(err) {
-//	        log.Printf("Command canceled: %v", err)
-//	    } else {
-//	        log.Printf("Command failed: %v", err)
-//	    }
-//	    return
-//	}
-//	// 处理成功情况
-//	fmt.Println(string(result.Output()))
-//
-// 返回:
-//   - *Result: 执行结果对象, 包含输出、时间、退出码等信息
-//   - error: 执行过程中的错误信息，可通过 IsTimeoutError() 和 IsCanceledError() 判断错误类型
-func (c *Command) ExecResult() (*Result, error) {
-	if !c.execOne.CompareAndSwap(false, true) {
-		return nil, ErrAlreadyExecuted
-	}
-
-	// 执行时才构建真正的exec.Cmd
-	c.buildExecCmd()
-
-	// 确保资源清理
-	defer c.cleanup()
-
-	// 命令执行开始时间
-	startTime := time.Now()
-
-	// 执行命令
-	output, err := c.execCmd.CombinedOutput()
-
-	// 命令执行结束时间
-	endTime := time.Now()
-
-	// 获取命令的退出码
-	exitCode := extractExitCode(err)
-
-	// 创建Result对象
-	result := &Result{
-		startTime: startTime,              // 命令开始时间
-		endTime:   endTime,                // 命令结束时间
-		duration:  endTime.Sub(startTime), // 命令执行时间
-		output:    output,                 // 命令输出
-		success:   err == nil,             // 命令是否执行成功
-		exitCode:  exitCode,               // 命令退出码
-	}
-
-	return result, judgeError(err, c)
 }
 
 // ExecAsync 异步执行命令(非阻塞)
@@ -682,10 +629,10 @@ func (c *Command) IsExecuted() bool {
 
 // getEffectiveTimeout 获取有效的超时时间
 // 优先使用用户上下文的超时，其次使用设置的超时时间
+//
+// 注意:
+//   - 此方法不是并发安全的，不要在多个goroutine中并发调用
 func (c *Command) getEffectiveTimeout() time.Duration {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	// 如果有用户上下文且有截止时间，计算剩余时间
 	if c.userCtx != nil {
 		if deadline, ok := c.userCtx.Deadline(); ok {

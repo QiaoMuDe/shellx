@@ -22,12 +22,92 @@
 package shellx
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
+
+// ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
+//
+// 实现原理：
+//  1. 去除首尾空白
+//  2. 遍历每个字符
+//  3. 处理引号状态切换
+//  4. 在非引号状态下遇到空格时分割
+//  5. 检查引号是否闭合
+//
+// 参数:
+//   - cmdStr: 要解析的命令字符串
+//
+// 返回值:
+//   - []string: 解析后的命令切片
+func ParseCmd(cmdStr string) []string {
+	// 去除首尾空白
+	cmdStr = strings.TrimSpace(cmdStr)
+	if cmdStr == "" {
+		return []string{}
+	}
+
+	var (
+		result    []string // 解析结果
+		current   []rune   // 当前命令片段
+		inQuotes  bool     // 是否在引号中
+		quote     rune     // 当前引号类型
+		hadQuotes bool     // 当前片段是否包含过引号
+	)
+
+	// 遍历每个字符
+	for _, r := range cmdStr {
+		if r == '"' || r == '\'' || r == '`' {
+			if !inQuotes {
+				inQuotes = true // 开始引号
+				quote = r
+				hadQuotes = true // 标记当前片段包含引号
+
+			} else if r == quote {
+				inQuotes = false // 引号闭合
+
+			} else {
+				current = append(current, r) // 引号内的字符直接添加
+			}
+
+		} else if (r == ' ' || r == '\t') && !inQuotes {
+			if len(current) > 0 || hadQuotes {
+				result = append(result, string(current)) // 非引号状态下遇到空格或制表符，添加当前命令片段
+				current = current[:0]
+				hadQuotes = false
+			}
+
+		} else {
+			current = append(current, r)
+		}
+	}
+
+	// 添加最后一个命令片段
+	if len(current) > 0 || hadQuotes {
+		result = append(result, string(current))
+	}
+
+	// 检查引号是否闭合
+	if inQuotes {
+		return []string{}
+	}
+
+	return result
+}
+
+// FindCmd 查找命令
+//
+// 参数:
+//   - name: 命令名称
+//
+// 返回:
+//   - string: 命令路径
+//   - error: 错误信息
+func FindCmd(name string) (string, error) {
+	return exec.LookPath(name)
+}
 
 // ########################################
 // 便捷函数
@@ -167,112 +247,6 @@ func ExecOutT(timeout time.Duration, name string, args ...string) ([]byte, error
 	return cmd.ExecOutput()
 }
 
-// ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
-//
-// 实现原理：
-//  1. 去除首尾空白
-//  2. 遍历每个字符
-//  3. 处理引号状态切换
-//  4. 在非引号状态下遇到空格时分割
-//  5. 检查引号是否闭合
-//
-// 参数:
-//   - cmdStr: 要解析的命令字符串
-//
-// 返回值:
-//   - []string: 解析后的命令切片
-func ParseCmd(cmdStr string) []string {
-	// 去除首尾空白
-	cmdStr = strings.TrimSpace(cmdStr)
-	if cmdStr == "" {
-		return []string{}
-	}
-
-	var (
-		result    []string // 解析结果
-		current   []rune   // 当前命令片段
-		inQuotes  bool     // 是否在引号中
-		quote     rune     // 当前引号类型
-		hadQuotes bool     // 当前片段是否包含过引号
-	)
-
-	// 遍历每个字符
-	for _, r := range cmdStr {
-		if r == '"' || r == '\'' || r == '`' {
-			if !inQuotes {
-				inQuotes = true // 开始引号
-				quote = r
-				hadQuotes = true // 标记当前片段包含引号
-
-			} else if r == quote {
-				inQuotes = false // 引号闭合
-
-			} else {
-				current = append(current, r) // 引号内的字符直接添加
-			}
-
-		} else if (r == ' ' || r == '\t') && !inQuotes {
-			if len(current) > 0 || hadQuotes {
-				result = append(result, string(current)) // 非引号状态下遇到空格或制表符，添加当前命令片段
-				current = current[:0]
-				hadQuotes = false
-			}
-
-		} else {
-			current = append(current, r)
-		}
-	}
-
-	// 添加最后一个命令片段
-	if len(current) > 0 || hadQuotes {
-		result = append(result, string(current))
-	}
-
-	// 检查引号是否闭合
-	if inQuotes {
-		return []string{}
-	}
-
-	return result
-}
-
-// FindCmd 查找命令
-//
-// 参数:
-//   - name: 命令名称
-//
-// 返回:
-//   - string: 命令路径
-//   - error: 错误信息
-func FindCmd(name string) (string, error) {
-	return exec.LookPath(name)
-}
-
-// validateEnvVar 验证环境变量格式
-//
-// 参数:
-//   - env: 环境变量字符串，格式为 "key=value"
-//
-// 返回:
-//   - error: 错误信息
-func validateEnvVar(env string) error {
-	if strings.TrimSpace(env) == "" {
-		return fmt.Errorf("environment variable cannot be empty")
-	}
-
-	parts := strings.SplitN(env, "=", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid environment variable format, expected 'key=value': %s", env)
-	}
-
-	key := strings.TrimSpace(parts[0])
-	if key == "" {
-		return fmt.Errorf("environment variable key cannot be empty: %s", env)
-	}
-
-	return nil
-}
-
 // ExecCode 执行命令并返回退出码(阻塞)
 //
 // 参数:
@@ -283,11 +257,11 @@ func validateEnvVar(env string) error {
 //   - int: 退出码
 //   - error: 错误信息
 func ExecCode(name string, args ...string) (int, error) {
-	result, err := NewCmd(name, args...).ExecResult()
+	err := NewCmd(name, args...).Exec()
 	if err != nil {
 		return -1, err
 	}
-	return result.Code(), nil
+	return extractExitCode(err), nil
 }
 
 // ExecCodeStr 字符串方式执行命令并返回退出码(阻塞)
@@ -299,9 +273,9 @@ func ExecCode(name string, args ...string) (int, error) {
 //   - int: 退出码
 //   - error: 错误信息
 func ExecCodeStr(cmdStr string) (int, error) {
-	result, err := NewCmdStr(cmdStr).ExecResult()
+	err := NewCmdStr(cmdStr).Exec()
 	if err != nil {
 		return -1, err
 	}
-	return result.Code(), nil
+	return extractExitCode(err), nil
 }
