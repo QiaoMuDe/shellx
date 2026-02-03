@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"mvdan.cc/sh/v3/interp"
 )
 
 func TestIsExitStatus(t *testing.T) {
@@ -36,7 +38,24 @@ func TestExitStatusError(t *testing.T) {
 
 	expected := "exit status 127"
 	if err.Error() != expected {
-		t.Fatalf("expected %q, got %q", expected, err.Error())
+		t.Fatalf("expected %s, got %s", expected, err.Error())
+	}
+}
+
+func TestIsExitStatusWithInterpExitStatus(t *testing.T) {
+	// 测试原生interp.ExitStatus
+	// 注意：interp.ExitStatus是uint8类型，不是接口
+
+	// 直接使用uint8类型作为interp.ExitStatus
+	var err error = interp.ExitStatus(42)
+
+	code, ok := IsExitStatus(err)
+	if !ok {
+		t.Fatal("expected true")
+	}
+
+	if code != 42 {
+		t.Fatalf("expected code 42, got %d", code)
 	}
 }
 

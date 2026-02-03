@@ -70,9 +70,17 @@ func handleError(err error, cmdStr string, timeout time.Duration) error {
 //   - uint8: 退出码
 //   - bool: 是否是退出状态错误
 func IsExitStatus(err error) (uint8, bool) {
+	// 先检查自定义ExitStatus
 	var es ExitStatus
 	if errors.As(err, &es) {
 		return es.Code, true
 	}
+
+	// 再检查原生interp.ExitStatus（它是uint8类型）
+	var is interp.ExitStatus
+	if errors.As(err, &is) {
+		return uint8(is), true
+	}
+
 	return 0, false
 }
