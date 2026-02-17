@@ -10,6 +10,7 @@ package shellx
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -20,9 +21,17 @@ import (
 //   - 该方法会根据上下文和超时时间来创建exec.Cmd对象.
 //   - 如果上下文设置了超时时间, 则会忽略timeout参数.
 //   - 此方法不是并发安全的，不要在多个goroutine中并发调用
-func (c *Command) buildExecCmd() {
+//
+// 返回:
+//   - error: 构建错误，成功时为 nil
+func (c *Command) buildExecCmd() error {
 	if c.execCmd != nil {
-		return // 已经构建过了
+		return nil // 已经构建过了
+	}
+
+	// 统一验证所有参数
+	if err := c.validateAllParameters(); err != nil {
+		return err // 返回错误，让上层处理
 	}
 
 	// 根据实际情况选择创建方式，避免不必要的上下文使用
@@ -64,6 +73,8 @@ func (c *Command) buildExecCmd() {
 	c.execCmd.Stdin = c.stdin   // 设置标准输入
 	c.execCmd.Stdout = c.stdout // 设置标准输出
 	c.execCmd.Stderr = c.stderr // 设置标准错误输出
+
+	return nil
 }
 
 // cleanup 清理资源
@@ -137,6 +148,49 @@ func validateEnvVar(env string) error {
 	key := strings.TrimSpace(parts[0])
 	if key == "" {
 		return fmt.Errorf("environment variable key cannot be empty: %s", env)
+	}
+
+	return nil
+}
+
+// validateAllParameters 统一验证命令对象的所有参数
+//
+// 该方法在执行命令前调用，验证所有配置参数的有效性。
+// 相比于在各个配置方法中直接panic，这里返回错误信息，
+// 让调用者决定如何处理错误，避免程序意外退出。
+//
+// 返回:
+//   - error: 验证错误，验证通过时为 nil
+func (c *Command) validateAllParameters() error {
+	// 验证基本命令参数
+	if c.name == "" {
+		return fmt.Errorf("command name cannot be empty")
+	}
+
+	// 验证工作目录
+	if c.dir != "" {
+		// 检查目录是否存在
+		info, err := os.Lstat(c.dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("working directory does not exist: %s", c.dir)
+			}
+			return fmt.Errorf("failed to check working directory: %s, error: %v", c.dir, err)
+		}
+
+		// 检查是否为目录
+		if !info.IsDir() {
+			return fmt.Errorf("specified path is not a directory: %s", c.dir)
+		}
+	}
+
+	// 验证环境变量格式
+	if len(c.envs) > 0 {
+		for _, env := range c.envs {
+			if err := validateEnvVar(env); err != nil {
+				return fmt.Errorf("environment variable format error: %w", err)
+			}
+		}
 	}
 
 	return nil

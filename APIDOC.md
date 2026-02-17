@@ -367,7 +367,14 @@ func ParseCmd(cmdStr string) []string
 2. 遍历每个字符
 3. 处理引号状态切换
 4. 在非引号状态下遇到空格时分割
-5. 检查引号是否闭合
+5. 检测未闭合的引号并返回错误
+
+**特性：**
+- 支持单引号、双引号、反引号
+- 正确处理空引号和连续引号
+- 支持Unicode空白字符处理
+- 支持跨平台换行符（\n, \r, \r\n）
+- 使用strings.Builder优化性能
 
 **参数:**
 - `cmdStr`: 要解析的命令字符串
@@ -375,9 +382,121 @@ func ParseCmd(cmdStr string) []string
 **返回值:**
 - `[]string`: 解析后的命令切片
 
+**示例:**
+```go
+// 基本解析
+result := shellx.ParseCmd("echo hello world")
+// 结果: ["echo", "hello", "world"]
+
+// 引号处理
+result := shellx.ParseCmd(`echo "hello world" 'test'`)
+// 结果: ["echo", "hello world", "test"]
+
+// 空引号处理
+result := shellx.ParseCmd(`echo ""hello""`)
+// 结果: ["echo", "hello"]
+
+// 跨平台换行符
+result := shellx.ParseCmd("echo \"line1\nline2\"")
+// 结果: ["echo", "line1\nline2"]
+```
+
+---
+
+### ParseCmdE
+
+```go
+func ParseCmdE(cmdStr string) ([]string, error)
+```
+
+将命令字符串解析为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
+
+**实现原理：**
+1. 去除首尾空白
+2. 遍历每个字符
+3. 处理引号状态切换
+4. 在非引号状态下遇到空格时分割
+5. 检测未闭合的引号并返回错误
+
+**特性：**
+- 支持单引号、双引号、反引号
+- 正确处理空引号和连续引号
+- 支持Unicode空白字符处理
+- 支持跨平台换行符（\n, \r, \r\n）
+- 使用strings.Builder优化性能
+- 返回详细的错误信息
+
+**参数:**
+- `cmdStr`: 要解析的命令字符串
+
+**返回值:**
+- `[]string`: 解析后的命令切片
+- `error: 解析错误，成功时为 nil
+
+**错误类型:**
+- `*UnclosedQuoteError`: 未闭合引号错误，包含引号类型信息
+
+**示例:**
+```go
+// 基本解析
+result, err := shellx.ParseCmdE("echo hello world")
+// 结果: ["echo", "hello", "world"], err: nil
+
+// 引号处理
+result, err := shellx.ParseCmdE(`echo "hello world" 'test'`)
+// 结果: ["echo", "hello world", "test"], err: nil
+
+// 未闭合引号错误
+result, err := shellx.ParseCmdE(`echo "hello world`)
+// 结果: ["echo", "hello world"], err: *UnclosedQuoteError{QuoteType: '"'}
+
+// 检查错误类型
+if err != nil {
+    if unclosedErr, ok := err.(*shellx.UnclosedQuoteError); ok {
+        fmt.Printf("未闭合的引号类型: %q\n", unclosedErr.QuoteType)
+    }
+}
+```
+
 ---
 
 ## 类型
+
+### UnclosedQuoteError
+
+```go
+type UnclosedQuoteError struct {
+    QuoteType rune // 未闭合的引号类型 ('"', '\'', 或 '`')
+}
+```
+
+UnclosedQuoteError 表示命令字符串中存在未闭合的引号
+
+**方法:**
+
+#### Error
+
+```go
+func (e *UnclosedQuoteError) Error() string
+```
+
+实现 error 接口，返回错误信息
+
+**返回:**
+- `string`: 错误信息
+
+#### GetQuoteType
+
+```go
+func (e *UnclosedQuoteError) GetQuoteType() rune
+```
+
+返回未闭合的引号类型
+
+**返回:**
+- `rune`: 未闭合的引号字符
+
+---
 
 ### Command
 

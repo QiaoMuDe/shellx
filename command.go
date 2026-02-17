@@ -73,7 +73,7 @@ type Command struct {
 //   - 默认继承父进程的环境变量, 可以通过WithEnv方法设置环境变量
 func NewCmd(name string, args ...string) *Command {
 	if name == "" {
-		panic("name cannot be empty")
+		panic("name must not be empty")
 	}
 
 	return &Command{
@@ -98,7 +98,7 @@ func NewCmd(name string, args ...string) *Command {
 //   - 默认继承父进程的环境变量, 可以通过WithEnv方法设置环境变量
 func NewCmds(cmdArgs []string) *Command {
 	if len(cmdArgs) == 0 {
-		panic("cmdArgs cannot be empty")
+		panic("cmdArgs must not be empty")
 	}
 
 	name := cmdArgs[0] // 第一个元素为命令名
@@ -123,9 +123,26 @@ func NewCmds(cmdArgs []string) *Command {
 //   - 默认为ShellDef1, 根据操作系统自动选择shell(Windows系统默认为cmd, 其他系统默认为sh)
 //   - 默认继承父进程的环境变量, 可以通过WithEnv方法设置环境变量
 func NewCmdStr(cmdStr string) *Command {
-	cmds := ParseCmd(cmdStr) // 使用命令解析器解析命令字符串
+	if cmdStr == "" {
+		panic("cmdStr must not be empty")
+	}
+
+	cmds, err := ParseCmdE(cmdStr) // 使用命令解析器解析命令字符串
+	if err != nil {
+		// 解析失败时触发panic，快速提醒开发者
+		panic(fmt.Sprintf("command parse failed: %v, original command: %q", err, cmdStr))
+	}
+
+	if len(cmds) == 0 {
+		panic(fmt.Sprintf("parsed command is empty, original command: %q", cmdStr))
+	}
+
+	// 调用NewCmds来创建命令对象，复用逻辑
 	cmd := NewCmds(cmds)
-	cmd.raw = cmdStr // 保存原始命令字符串
+
+	// 保存原始命令字符串
+	cmd.raw = cmdStr
+
 	return cmd
 }
 
@@ -144,22 +161,6 @@ func NewCmdStr(cmdStr string) *Command {
 // 注意:
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithWorkDir(dir string) *Command {
-	if dir == "" {
-		return c
-	}
-
-	info, statErr := os.Lstat(dir)
-	if statErr != nil {
-		if os.IsNotExist(statErr) {
-			panic(fmt.Sprintf("dir %s does not exist", dir))
-		}
-
-		panic(fmt.Sprintf("stat %s failed: %v", dir, statErr))
-	}
-	if !info.IsDir() {
-		panic(fmt.Sprintf("dir %s is not a directory", dir))
-	}
-
 	c.dir = dir
 	return c
 }
@@ -178,10 +179,6 @@ func (c *Command) WithWorkDir(dir string) *Command {
 //   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithEnv(key, value string) *Command {
-	if c.envs == nil {
-		c.envs = os.Environ()
-	}
-
 	if key != "" {
 		c.envs = append(c.envs, fmt.Sprintf("%s=%s", key, value))
 	}
@@ -205,19 +202,7 @@ func (c *Command) WithEnvs(envs []string) *Command {
 		return c
 	}
 
-	if c.envs == nil {
-		c.envs = os.Environ()
-	}
-
-	// 验证环境变量格式，只添加验证通过的环境变量
-	validEnvs := make([]string, 0, len(envs))
-	for _, env := range envs {
-		if err := validateEnvVar(env); err == nil {
-			validEnvs = append(validEnvs, env)
-		}
-	}
-
-	c.envs = append(c.envs, validEnvs...)
+	c.envs = append(c.envs, envs...)
 	return c
 }
 
@@ -254,9 +239,6 @@ func (c *Command) WithTimeout(timeout time.Duration) *Command {
 //   - 该上下文会覆盖之前设置的超时时间.
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithContext(ctx context.Context) *Command {
-	if ctx == nil {
-		panic("context cannot be nil")
-	}
 	c.userCtx = ctx
 	return c
 }
@@ -272,9 +254,6 @@ func (c *Command) WithContext(ctx context.Context) *Command {
 // 注意:
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStdin(stdin io.Reader) *Command {
-	if stdin == nil {
-		panic("stdin cannot be nil")
-	}
 	c.stdin = stdin
 	return c
 }
@@ -290,9 +269,6 @@ func (c *Command) WithStdin(stdin io.Reader) *Command {
 // 注意:
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStdout(stdout io.Writer) *Command {
-	if stdout == nil {
-		panic("stdout cannot be nil")
-	}
 	c.stdout = stdout
 	return c
 }
@@ -308,9 +284,6 @@ func (c *Command) WithStdout(stdout io.Writer) *Command {
 // 注意:
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithStderr(stderr io.Writer) *Command {
-	if stderr == nil {
-		panic("stderr cannot be nil")
-	}
 	c.stderr = stderr
 	return c
 }
@@ -387,7 +360,8 @@ func (c *Command) Args() []string {
 //   - string: 命令字符串
 func (c *Command) CmdStr() string {
 	if c.execCmd == nil {
-		return c.raw
+		return c.getCmdStr()
+
 	} else {
 		return c.execCmd.String()
 	}
@@ -443,7 +417,9 @@ func (c *Command) Exec() error {
 	}
 
 	// 执行时才构建真正的exec.Cmd
-	c.buildExecCmd()
+	if err := c.buildExecCmd(); err != nil {
+		return err
+	}
 
 	// 确保资源清理
 	defer c.cleanup()
@@ -466,7 +442,9 @@ func (c *Command) ExecOutput() ([]byte, error) {
 	}
 
 	// 执行时才构建真正的exec.Cmd
-	c.buildExecCmd()
+	if err := c.buildExecCmd(); err != nil {
+		return nil, err
+	}
 
 	// 确保资源清理
 	defer c.cleanup()
@@ -486,7 +464,9 @@ func (c *Command) ExecStdout() ([]byte, error) {
 	}
 
 	// 执行时才构建真正的exec.Cmd
-	c.buildExecCmd()
+	if err := c.buildExecCmd(); err != nil {
+		return nil, err
+	}
 
 	// 确保资源清理
 	defer c.cleanup()
@@ -505,7 +485,9 @@ func (c *Command) ExecAsync() error {
 	}
 
 	// 执行时才构建真正的exec.Cmd
-	c.buildExecCmd()
+	if err := c.buildExecCmd(); err != nil {
+		return err
+	}
 
 	err := c.execCmd.Start()
 	return judgeError(err, c)
@@ -555,7 +537,11 @@ func (c *Command) WaitWithCode() (int, error) {
 //   - *exec.Cmd: 底层的 exec.Cmd 对象
 func (c *Command) Cmd() *exec.Cmd {
 	if c.execCmd == nil {
-		c.buildExecCmd() // 如果还没构建，先构建
+		if err := c.buildExecCmd(); err != nil {
+			// 对于 Cmd() 方法，我们可以选择 panic 或返回 nil
+			// 这里选择 panic 以保持行为一致性
+			panic(err)
+		}
 	}
 	return c.execCmd
 }
