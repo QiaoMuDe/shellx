@@ -47,10 +47,11 @@ func (s *Shx) WithDir(dir string) *Shx {
 	// 转换为绝对路径
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
-		s.dir = dir
-	} else {
-		s.dir = absDir
+		panic(fmt.Sprintf("resolve %s failed: %v", dir, err))
 	}
+
+	// 设置工作目录
+	s.dir = absDir
 
 	return s
 }
@@ -188,14 +189,9 @@ func (s *Shx) WithEnvs(envs []string) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-//   - 如果 r 为 nil, 会 panic
 func (s *Shx) WithStdin(r io.Reader) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
-	}
-
-	if r == nil {
-		panic("stdin cannot be nil")
 	}
 
 	s.stdin = r
@@ -212,14 +208,9 @@ func (s *Shx) WithStdin(r io.Reader) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-//   - 如果 w 为 nil, 会 panic
 func (s *Shx) WithStdout(w io.Writer) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
-	}
-
-	if w == nil {
-		panic("stdout cannot be nil")
 	}
 
 	s.stdout = w
@@ -236,14 +227,9 @@ func (s *Shx) WithStdout(w io.Writer) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-//   - 如果 w 为 nil, 会 panic
 func (s *Shx) WithStderr(w io.Writer) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
-	}
-
-	if w == nil {
-		panic("stderr cannot be nil")
 	}
 
 	s.stderr = w
@@ -283,15 +269,10 @@ func (s *Shx) WithTimeout(d time.Duration) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-//   - 如果 ctx 为 nil, 会 panic
 //   - 设置的上下文会完全覆盖 WithTimeout 设置的超时
 func (s *Shx) WithContext(ctx context.Context) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")
-	}
-
-	if ctx == nil {
-		panic("context cannot be nil")
 	}
 
 	s.ctx = ctx

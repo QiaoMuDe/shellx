@@ -222,15 +222,19 @@ func TestWithContext(t *testing.T) {
 func TestWithNilContext(t *testing.T) {
 	cmd := New("echo test")
 
-	// 测试设置 nil 上下文应该 panic
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic for nil context")
-		}
-	}()
-
+	// 测试设置 nil 上下文现在不会 panic，而是正常设置
 	//nolint:all
-	cmd.WithContext(nil)
+	result := cmd.WithContext(nil)
+
+	// 验证返回的是同一个对象
+	if result != cmd {
+		t.Error("WithContext should return the same object")
+	}
+
+	// 验证上下文被设置为 nil
+	if cmd.Context() != nil {
+		t.Error("Context should be nil")
+	}
 }
 
 func TestWithAfterExecution(t *testing.T) {
