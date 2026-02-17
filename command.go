@@ -153,14 +153,36 @@ func NewCmdStr(cmdStr string) *Command {
 // WithWorkDir 设置命令的工作目录
 //
 // 参数：
-//   - dir: 命令的工作目录
+//   - dir: 工作目录路径
 //
 // 返回：
 //   - *Command: 命令对象
 //
 // 注意:
+//   - 该方法会验证目录是否存在，如果不存在会panic
+//   - 空字符串表示使用当前目录
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithWorkDir(dir string) *Command {
+	// 如果目录不为空，验证目录
+	if dir != "" {
+		// 检查目录是否存在
+		info, err := os.Stat(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				panic(fmt.Sprintf("directory %s does not exist", dir))
+			}
+			panic(fmt.Sprintf("stat %s failed: %v", dir, err))
+		}
+
+		// 检查是否为目录
+		if !info.IsDir() {
+			panic(fmt.Sprintf("%s is not a directory", dir))
+		}
+	} else {
+		// 空字符串表示使用当前目录
+		dir = "."
+	}
+
 	c.dir = dir
 	return c
 }
@@ -175,13 +197,21 @@ func (c *Command) WithWorkDir(dir string) *Command {
 //   - *Command: 命令对象
 //
 // 注意:
-//   - 该方法会验证key是否为空, 如果为空则忽略。
+//   - 该方法会验证key是否为空, 如果为空会panic。
+//   - 该方法会验证环境变量格式，格式错误会panic。
 //   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithEnv(key, value string) *Command {
-	if key != "" {
-		c.envs = append(c.envs, fmt.Sprintf("%s=%s", key, value))
+	if key == "" {
+		panic("environment variable key cannot be empty")
 	}
+
+	envStr := fmt.Sprintf("%s=%s", key, value)
+	// 验证环境变量格式
+	if err := validateEnvVar(envStr); err != nil {
+		panic(fmt.Sprintf("environment variable format error: %v", err))
+	}
+	c.envs = append(c.envs, envStr)
 	return c
 }
 
@@ -194,7 +224,7 @@ func (c *Command) WithEnv(key, value string) *Command {
 //   - *Command: 命令对象
 //
 // 注意:
-//   - 该方法会验证环境变量格式，只添加验证通过的环境变量。
+//   - 该方法会验证环境变量格式，格式错误的项会被忽略。
 //   - 无需添加系统环境变量os.Environ(), 系统环境变量会自动继承.
 //   - 此方法不是并发安全的，不要在多个goroutine中并发配置
 func (c *Command) WithEnvs(envs []string) *Command {
@@ -202,7 +232,16 @@ func (c *Command) WithEnvs(envs []string) *Command {
 		return c
 	}
 
-	c.envs = append(c.envs, envs...)
+	// 验证每个环境变量的格式
+	validEnvs := make([]string, 0, len(envs))
+	for _, env := range envs {
+		if err := validateEnvVar(env); err != nil {
+			panic(fmt.Sprintf("environment variable format error: %v", err))
+		}
+		validEnvs = append(validEnvs, env)
+	}
+
+	c.envs = append(c.envs, validEnvs...)
 	return c
 }
 

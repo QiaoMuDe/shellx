@@ -179,11 +179,30 @@ func TestWithEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("空key被忽略", func(t *testing.T) {
-		originalEnvCount := len(cmd.Env())
+	t.Run("空key触发panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("期望panic，但没有发生")
+			} else if !strings.Contains(r.(string), "environment variable key cannot be empty") {
+				t.Errorf("期望panic包含'environment variable key cannot be empty'，实际为: %v", r)
+			}
+		}()
 		cmd.WithEnv("", "value")
-		if len(cmd.Env()) != originalEnvCount {
-			t.Error("空key的环境变量应该被忽略")
+	})
+
+	t.Run("空value允许", func(t *testing.T) {
+		// 空value是合法的，用于取消环境变量
+		cmd.WithEnv("EMPTY_VALUE", "")
+		envs := cmd.Env()
+		found := false
+		for _, env := range envs {
+			if env == "EMPTY_VALUE=" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("空value的环境变量应该被设置")
 		}
 	})
 

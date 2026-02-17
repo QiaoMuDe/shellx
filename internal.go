@@ -10,7 +10,6 @@ package shellx
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -27,11 +26,6 @@ import (
 func (c *Command) buildExecCmd() error {
 	if c.execCmd != nil {
 		return nil // 已经构建过了
-	}
-
-	// 统一验证所有参数
-	if err := c.validateAllParameters(); err != nil {
-		return err // 返回错误，让上层处理
 	}
 
 	// 根据实际情况选择创建方式，避免不必要的上下文使用
@@ -136,65 +130,23 @@ func extractExitCode(err error) int {
 // 返回:
 //   - error: 错误信息
 func validateEnvVar(env string) error {
+	// 验证环境变量字符串是否为空
 	if strings.TrimSpace(env) == "" {
 		return fmt.Errorf("environment variable cannot be empty")
 	}
 
+	// 检查格式是否为 "key=value", 允许value为空
 	parts := strings.SplitN(env, "=", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid environment variable format, expected 'key=value': %s", env)
 	}
 
+	// 验证key是否为空
 	key := strings.TrimSpace(parts[0])
 	if key == "" {
 		return fmt.Errorf("environment variable key cannot be empty: %s", env)
 	}
 
-	return nil
-}
-
-// validateAllParameters 统一验证命令对象的所有参数
-//
-// 该方法在执行命令前调用，验证所有配置参数的有效性。
-// 相比于在各个配置方法中直接panic，这里返回错误信息，
-// 让调用者决定如何处理错误，避免程序意外退出。
-//
-// 返回:
-//   - error: 验证错误，验证通过时为 nil
-func (c *Command) validateAllParameters() error {
-	// 验证基本命令参数
-	if c.name == "" {
-		return fmt.Errorf("command name cannot be empty")
-	}
-
-	// 验证工作目录
-	if c.dir == "" {
-		c.dir = "."
-
-	} else {
-		// 检查目录是否存在
-		info, err := os.Stat(c.dir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("directory %s does not exist", c.dir)
-			}
-			return fmt.Errorf("stat %s failed: %v", c.dir, err)
-		}
-
-		// 检查是否为目录
-		if !info.IsDir() {
-			return fmt.Errorf("%s is not a directory", c.dir)
-		}
-	}
-
-	// 验证环境变量格式
-	if len(c.envs) > 0 {
-		for _, env := range c.envs {
-			if err := validateEnvVar(env); err != nil {
-				return fmt.Errorf("environment variable format error: %w", err)
-			}
-		}
-	}
-
+	// 注意：value 可以为空，这是合法的（例如：KEY= 用于取消环境变量）
 	return nil
 }
