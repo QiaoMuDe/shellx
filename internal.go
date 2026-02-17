@@ -168,19 +168,22 @@ func (c *Command) validateAllParameters() error {
 	}
 
 	// 验证工作目录
-	if c.dir != "" {
+	if c.dir == "" {
+		c.dir = "."
+
+	} else {
 		// 检查目录是否存在
-		info, err := os.Lstat(c.dir)
+		info, err := os.Stat(c.dir)
 		if err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("working directory does not exist: %s", c.dir)
+				return fmt.Errorf("directory %s does not exist", c.dir)
 			}
-			return fmt.Errorf("failed to check working directory: %s, error: %v", c.dir, err)
+			return fmt.Errorf("stat %s failed: %v", c.dir, err)
 		}
 
 		// 检查是否为目录
 		if !info.IsDir() {
-			return fmt.Errorf("specified path is not a directory: %s", c.dir)
+			return fmt.Errorf("%s is not a directory", c.dir)
 		}
 	}
 

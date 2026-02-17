@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,8 +27,9 @@ func (s *Shx) WithDir(dir string) *Shx {
 		panic("shx has already been executed")
 	}
 
+	// 处理空目录
 	if dir == "" {
-		return s
+		dir = "."
 	}
 
 	// 验证目录是否存在
@@ -44,14 +44,8 @@ func (s *Shx) WithDir(dir string) *Shx {
 		panic(fmt.Sprintf("%s is not a directory", dir))
 	}
 
-	// 转换为绝对路径
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		panic(fmt.Sprintf("resolve %s failed: %v", dir, err))
-	}
-
 	// 设置工作目录
-	s.dir = absDir
+	s.dir = dir
 
 	return s
 }
@@ -74,7 +68,7 @@ func (s *Shx) WithEnv(key, value string) *Shx {
 	}
 
 	if key == "" {
-		return s
+		panic("environment variable key cannot be empty")
 	}
 
 	// 获取当前环境变量列表
@@ -110,7 +104,7 @@ func (s *Shx) WithEnvMap(envs map[string]string) *Shx {
 	}
 
 	if len(envs) == 0 {
-		return s
+		panic("environment map cannot be empty")
 	}
 
 	// 获取当前环境变量列表
@@ -149,7 +143,7 @@ func (s *Shx) WithEnvs(envs []string) *Shx {
 	}
 
 	if len(envs) == 0 {
-		return s
+		panic("environment slice cannot be empty")
 	}
 
 	// 解析新环境变量为 map 用于去重和覆盖
