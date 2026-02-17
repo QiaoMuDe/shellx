@@ -149,31 +149,21 @@ func TestParseCmd(t *testing.T) {
 			expected: []string{"echo", ""},
 		},
 
-		// 错误场景 - 未闭合引号
+		// 错误场景 - 未闭合引号（不自动修复）
 		{
 			name:     "未闭合双引号",
 			input:    `echo "hello world`,
-			expected: []string{},
+			expected: []string{"echo", "hello world"},
 		},
 		{
 			name:     "未闭合单引号",
 			input:    `echo 'hello world`,
-			expected: []string{},
+			expected: []string{"echo", "hello world"},
 		},
 		{
 			name:     "未闭合反引号",
 			input:    "echo `hello world",
-			expected: []string{},
-		},
-		{
-			name:     "引号类型不匹配",
-			input:    `echo "hello'`,
-			expected: []string{},
-		},
-		{
-			name:     "多个未闭合引号",
-			input:    `echo "hello 'world`,
-			expected: []string{},
+			expected: []string{"echo", "hello world"},
 		},
 
 		// 特殊引号场景
@@ -226,6 +216,93 @@ func TestParseCmd(t *testing.T) {
 			result := ParseCmd(tt.input)
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("ParseCmd(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseCmdE(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    []string
+		expectError bool
+	}{
+		// 基本场景
+		{
+			name:        "简单命令",
+			input:       "ls -la",
+			expected:    []string{"ls", "-la"},
+			expectError: false,
+		},
+		{
+			name:        "双引号参数",
+			input:       `echo "hello world"`,
+			expected:    []string{"echo", "hello world"},
+			expectError: false,
+		},
+		{
+			name:        "单引号参数",
+			input:       `echo 'hello world'`,
+			expected:    []string{"echo", "hello world"},
+			expectError: false,
+		},
+		{
+			name:        "反引号参数",
+			input:       "echo `date`",
+			expected:    []string{"echo", "date"},
+			expectError: false,
+		},
+
+		// 错误场景 - 未闭合引号
+		{
+			name:        "未闭合双引号",
+			input:       `echo "hello world`,
+			expected:    []string{"echo", "hello world"},
+			expectError: true,
+		},
+		{
+			name:        "未闭合单引号",
+			input:       `echo 'hello world`,
+			expected:    []string{"echo", "hello world"},
+			expectError: true,
+		},
+		{
+			name:        "未闭合反引号",
+			input:       "echo `hello world",
+			expected:    []string{"echo", "hello world"},
+			expectError: true,
+		},
+
+		// 边界场景
+		{
+			name:        "空字符串",
+			input:       "",
+			expected:    []string{},
+			expectError: false,
+		},
+		{
+			name:        "只有空格",
+			input:       "   ",
+			expected:    []string{},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseCmdE(tt.input)
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("ParseCmdE(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+
+			if tt.expectError && err == nil {
+				t.Errorf("ParseCmdE(%q) expected error, got nil", tt.input)
+			}
+
+			if !tt.expectError && err != nil {
+				t.Errorf("ParseCmdE(%q) unexpected error: %v", tt.input, err)
 			}
 		})
 	}

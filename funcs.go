@@ -10,7 +10,7 @@
 //   - 支持单引号、双引号、反引号三种引号类型
 //   - 正确处理引号内的空格和特殊字符
 //   - 支持引号嵌套（不同类型的引号可以嵌套）
-//   - 自动检测未闭合的引号并返回空结果
+//   - 检测未闭合的引号并返回错误信息
 //   - 处理多个连续空格和制表符
 //   - 支持复杂的命令行参数解析
 //
@@ -28,33 +28,34 @@ import (
 	"time"
 )
 
-// ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
+// parseCmdInternal 将命令字符串解析为命令切片（内部函数）
 //
 // 实现原理：
 //  1. 去除首尾空白
 //  2. 遍历每个字符
 //  3. 处理引号状态切换
 //  4. 在非引号状态下遇到空格时分割
-//  5. 检查引号是否闭合
+//  5. 检测未闭合的引号
 //
 // 参数:
 //   - cmdStr: 要解析的命令字符串
 //
 // 返回值:
 //   - []string: 解析后的命令切片
-func ParseCmd(cmdStr string) []string {
+//   - error: 解析错误，成功时为 nil
+func parseCmdInternal(cmdStr string) ([]string, error) {
 	// 去除首尾空白
 	cmdStr = strings.TrimSpace(cmdStr)
 	if cmdStr == "" {
-		return []string{}
+		return []string{}, nil
 	}
 
 	var (
-		result    []string // 解析结果
-		current   []rune   // 当前命令片段
-		inQuotes  bool     // 是否在引号中
-		quote     rune     // 当前引号类型
-		hadQuotes bool     // 当前片段是否包含过引号
+		result    []string = make([]string, 0, 8) // 解析结果
+		current   []rune   = make([]rune, 0, 32)  // 当前命令片段
+		inQuotes  bool                            // 是否在引号中
+		quote     rune                            // 当前引号类型
+		hadQuotes bool                            // 是否当前片段包含引号
 	)
 
 	// 遍历每个字符
@@ -91,10 +92,48 @@ func ParseCmd(cmdStr string) []string {
 
 	// 检查引号是否闭合
 	if inQuotes {
-		return []string{}
+		return result, &UnclosedQuoteError{QuoteType: quote}
 	}
 
+	return result, nil
+}
+
+// ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)
+//
+// 实现原理：
+//  1. 去除首尾空白
+//  2. 遍历每个字符
+//  3. 处理引号状态切换
+//  4. 在非引号状态下遇到空格时分割
+//  5. 检测未闭合的引号
+//
+// 参数:
+//   - cmdStr: 要解析的命令字符串
+//
+// 返回值:
+//   - []string: 解析后的命令切片
+func ParseCmd(cmdStr string) []string {
+	result, _ := parseCmdInternal(cmdStr)
 	return result
+}
+
+// ParseCmdE 将命令字符串解析为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
+//
+// 实现原理：
+//  1. 去除首尾空白
+//  2. 遍历每个字符
+//  3. 处理引号状态切换
+//  4. 在非引号状态下遇到空格时分割
+//  5. 检测未闭合的引号并返回错误
+//
+// 参数:
+//   - cmdStr: 要解析的命令字符串
+//
+// 返回值:
+//   - []string: 解析后的命令切片
+//   - error: 解析错误，成功时为 nil
+func ParseCmdE(cmdStr string) ([]string, error) {
+	return parseCmdInternal(cmdStr)
 }
 
 // FindCmd 查找命令

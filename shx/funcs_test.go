@@ -217,3 +217,368 @@ func BenchmarkOut(b *testing.B) {
 		_, _ = Out("echo test")
 	}
 }
+
+// ParseCmd 测试用例
+func TestParseCmd(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		// 基础场景
+		{
+			name:     "简单命令",
+			input:    "echo hello",
+			expected: []string{"echo", "hello"},
+		},
+		{
+			name:     "多参数命令",
+			input:    "ls -la /home/user",
+			expected: []string{"ls", "-la", "/home/user"},
+		},
+		{
+			name:     "空命令",
+			input:    "",
+			expected: []string{},
+		},
+		{
+			name:     "只有空格",
+			input:    "   ",
+			expected: []string{},
+		},
+		{
+			name:     "单个命令",
+			input:    "ls",
+			expected: []string{"ls"},
+		},
+
+		// 引号场景
+		{
+			name:     "双引号",
+			input:    `echo "hello world"`,
+			expected: []string{"echo", "\"hello world\""},
+		},
+		{
+			name:     "单引号",
+			input:    `echo 'hello world'`,
+			expected: []string{"echo", "'hello world'"},
+		},
+		{
+			name:     "反引号",
+			input:    "echo `hello world`",
+			expected: []string{"echo", "$(hello world)"},
+		},
+		{
+			name:     "多个引号参数",
+			input:    `echo "hello" "world" "test"`,
+			expected: []string{"echo", "\"hello\"", "\"world\"", "\"test\""},
+		},
+		{
+			name:     "引号嵌套",
+			input:    `echo "hello 'world'"`,
+			expected: []string{"echo", "\"hello 'world'\""},
+		},
+		{
+			name:     "单引号内双引号",
+			input:    `echo 'hello "world"'`,
+			expected: []string{"echo", "'hello \"world\"'"},
+		},
+
+		// 特殊字符场景
+		{
+			name:     "环境变量",
+			input:    `echo $HOME`,
+			expected: []string{"echo", "$HOME"},
+		},
+		{
+			name:     "花括号环境变量",
+			input:    `echo ${HOME}`,
+			expected: []string{"echo", "${HOME}"},
+		},
+		{
+			name:     "通配符",
+			input:    `ls *.go`,
+			expected: []string{"ls", "*.go"},
+		},
+		{
+			name:     "问号通配符",
+			input:    `ls test?.txt`,
+			expected: []string{"ls", "test?.txt"},
+		},
+		{
+			name:     "命令替换",
+			input:    `echo $(date)`,
+			expected: []string{"echo", "$(date)"},
+		},
+		{
+			name:     "反引号命令替换",
+			input:    "echo `date`",
+			expected: []string{"echo", "$(date)"},
+		},
+		{
+			name:     "转义双引号",
+			input:    `echo \"hello\"`,
+			expected: []string{"echo", "\\\"hello\\\""},
+		},
+		{
+			name:     "转义单引号",
+			input:    `echo \'hello\'`,
+			expected: []string{"echo", "\\'hello\\'"},
+		},
+		{
+			name:     "转义反引号",
+			input:    "echo \\`hello\\`",
+			expected: []string{"echo", "\\`hello\\`"},
+		},
+
+		// 复杂场景
+		{
+			name:     "多个连续空格",
+			input:    "echo   hello    world",
+			expected: []string{"echo", "hello", "world"},
+		},
+		{
+			name:     "制表符分隔",
+			input:    "echo\thello\tworld",
+			expected: []string{"echo", "hello", "world"},
+		},
+		{
+			name:     "混合空格和制表符",
+			input:    "echo \t hello \t world",
+			expected: []string{"echo", "hello", "world"},
+		},
+		{
+			name:     "引号内空格",
+			input:    `echo "hello   world"`,
+			expected: []string{"echo", "\"hello   world\""},
+		},
+		{
+			name:     "引号内特殊字符",
+			input:    `echo "hello@world.com"`,
+			expected: []string{"echo", "\"hello@world.com\""},
+		},
+		{
+			name:     "路径参数",
+			input:    `ls /home/user/Documents`,
+			expected: []string{"ls", "/home/user/Documents"},
+		},
+		{
+			name:     "Windows路径",
+			input:    `dir C:\Users\test`,
+			expected: []string{"dir", `C:\Users\test`},
+		},
+
+		// 错误场景（ParseCmd 应该返回空切片）
+		{
+			name:     "未闭合双引号",
+			input:    `echo "hello`,
+			expected: []string{},
+		},
+		{
+			name:     "未闭合单引号",
+			input:    `echo 'hello`,
+			expected: []string{},
+		},
+		{
+			name:     "未闭合反引号",
+			input:    "echo `hello",
+			expected: []string{},
+		},
+		{
+			name:     "未闭合括号",
+			input:    `echo $(date`,
+			expected: []string{},
+		},
+		{
+			name:     "未闭合花括号",
+			input:    `echo ${HOME`,
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseCmd(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("ParseCmd(%q) = %v, want %v", tt.input, result, tt.expected)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("ParseCmd(%q) = %v, want %v", tt.input, result, tt.expected)
+					return
+				}
+			}
+		})
+	}
+}
+
+// ParseCmdE 测试用例
+func TestParseCmdE(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    []string
+		expectError bool
+	}{
+		// 正常场景
+		{
+			name:        "简单命令",
+			input:       "echo hello",
+			expected:    []string{"echo", "hello"},
+			expectError: false,
+		},
+		{
+			name:        "双引号",
+			input:       `echo "hello world"`,
+			expected:    []string{"echo", "\"hello world\""},
+			expectError: false,
+		},
+		{
+			name:        "环境变量",
+			input:       `echo $HOME`,
+			expected:    []string{"echo", "$HOME"},
+			expectError: false,
+		},
+		{
+			name:        "通配符",
+			input:       `ls *.go`,
+			expected:    []string{"ls", "*.go"},
+			expectError: false,
+		},
+		{
+			name:        "命令替换",
+			input:       `echo $(date)`,
+			expected:    []string{"echo", "$(date)"},
+			expectError: false,
+		},
+		{
+			name:        "空命令",
+			input:       "",
+			expected:    []string{},
+			expectError: false,
+		},
+
+		// 错误场景
+		{
+			name:        "未闭合双引号",
+			input:       `echo "hello`,
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "未闭合单引号",
+			input:       `echo 'hello`,
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "未闭合反引号",
+			input:       "echo `hello",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "未闭合括号",
+			input:       `echo $(date`,
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "未闭合花括号",
+			input:       `echo ${HOME`,
+			expected:    nil,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseCmdE(tt.input)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("ParseCmdE(%q) expected error, got nil", tt.input)
+					return
+				}
+				if result != nil {
+					t.Errorf("ParseCmdE(%q) = %v, want nil on error", tt.input, result)
+					return
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ParseCmdE(%q) unexpected error: %v", tt.input, err)
+					return
+				}
+				if len(result) != len(tt.expected) {
+					t.Errorf("ParseCmdE(%q) = %v, want %v", tt.input, result, tt.expected)
+					return
+				}
+				for i := range result {
+					if result[i] != tt.expected[i] {
+						t.Errorf("ParseCmdE(%q) = %v, want %v", tt.input, result, tt.expected)
+						return
+					}
+				}
+			}
+		})
+	}
+}
+
+// ParseCmd 和 ParseCmdE 一致性测试
+func TestParseCmdConsistency(t *testing.T) {
+	tests := []string{
+		"echo hello",
+		`echo "hello world"`,
+		`echo 'hello world'`,
+		`ls -la /home/user`,
+		`echo $HOME`,
+		`ls *.go`,
+		`echo $(date)`,
+		`echo "hello" "world"`,
+		`echo "hello 'world'"`,
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			result1 := ParseCmd(input)
+			result2, err := ParseCmdE(input)
+
+			if err != nil {
+				t.Errorf("ParseCmdE(%q) unexpected error: %v", input, err)
+				return
+			}
+
+			if len(result1) != len(result2) {
+				t.Errorf("ParseCmd(%q) = %v, ParseCmdE(%q) = %v, length mismatch", input, result1, input, result2)
+				return
+			}
+
+			for i := range result1 {
+				if result1[i] != result2[i] {
+					t.Errorf("ParseCmd(%q) = %v, ParseCmdE(%q) = %v, mismatch at index %d", input, result1, input, result2, i)
+					return
+				}
+			}
+		})
+	}
+}
+
+// 基准测试 - ParseCmd
+func BenchmarkParseCmd(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = ParseCmd(`echo "hello world"`)
+	}
+}
+
+func BenchmarkParseCmdE(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = ParseCmdE(`echo "hello world"`)
+	}
+}
+
+func BenchmarkParseCmdComplex(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = ParseCmd(`ls -la /home/user && echo "hello" "world" | grep test`)
+	}
+}
