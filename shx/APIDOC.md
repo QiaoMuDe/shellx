@@ -10,7 +10,7 @@ package shx // import "gitee.com/MM-Q/shellx/shx"
 
 Package shx 提供了基于 mvdan.cc/sh/v3 的纯 Go shell 命令执行功能。
 
-本包是 ShellX 的子包, 提供了与主包相似的 API 风格, 但具有更好的跨平台一致性。 它使用 mvdan.cc/sh/v3 进行命令解析和执行, 不依赖系统 shell。
+本包是 ShellX 的子包, 提供了与主包相似的 API 风格, 但具有更好的跨平台一致性。 它使用 mvdan.cc/sh/v3 进行命令执行, 不依赖系统 shell。
 
 ### 主要特性
 
@@ -187,91 +187,6 @@ func OutWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, e
 ```go
 var buf bytes.Buffer
 output, err := shx.OutWithIO("cat", strings.NewReader("hello"), &buf, os.Stderr)
-```
-
----
-
-### ParseCmd
-
-```go
-func ParseCmd(cmdStr string) []string
-```
-
-将命令字符串解析为命令切片
-
-使用 mvdan.cc/sh/v3 的 Words 方法解析，支持完整的 shell 语法：
-  - 环境变量：${VAR}, $VAR
-  - 通配符：*.go, test?.txt
-  - 命令替换：$(cmd), `cmd`
-  - 转义字符：\", \', \`
-  - 引号嵌套：支持不同类型引号嵌套
-
-注意：
-  - 与主包 ParseCmd 行为一致（解析错误时返回空切片）
-  - 不返回错误信息
-  - 引号会被保留在结果中
-
-参数:
-  - cmdStr: 要解析的命令字符串
-
-返回值:
-  - []string: 解析后的命令切片，解析错误时返回空切片
-
-示例:
-
-```go
-result := shx.ParseCmd(`echo "hello world"`)
-// 结果: []string{"echo", "\"hello world\""}
-
-result = shx.ParseCmd(`ls -la /home/user`)
-// 结果: []string{"ls", "-la", "/home/user"}
-
-result = shx.ParseCmd(`echo $HOME`)
-// 结果: []string{"echo", "$HOME"}
-```
-
----
-
-### ParseCmdE
-
-```go
-func ParseCmdE(cmdStr string) ([]string, error)
-```
-
-将命令字符串解析为命令切片（带错误信息）
-
-使用 mvdan.cc/sh/v3 的 Words 方法解析，支持完整的 shell 语法：
-  - 环境变量：${VAR}, $VAR
-  - 通配符：*.go, test?.txt
-  - 命令替换：$(cmd), `cmd`
-  - 转义字符：\", \', \`
-  - 引号嵌套：支持不同类型引号嵌套
-
-注意：
-  - 返回详细的错误信息，便于调试和错误处理
-  - 引号会被保留在结果中
-
-参数:
-  - cmdStr: 要解析的命令字符串
-
-返回值:
-  - []string: 解析后的命令切片
-  - error: 解析错误，成功时为 nil
-
-示例:
-
-```go
-result, err := shx.ParseCmdE(`echo "hello world"`)
-if err != nil {
-    log.Printf("解析错误: %v", err)
-}
-// 结果: []string{"echo", "\"hello world\""}, nil
-
-result, err = shx.ParseCmdE(`echo "hello`)
-if err != nil {
-    log.Printf("未闭合引号错误: %v", err)
-}
-// 结果: nil, error
 ```
 
 ---

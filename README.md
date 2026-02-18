@@ -368,8 +368,8 @@ if exitCode, ok := shx.IsExitStatus(err); ok {
 ### 子包 shx Shell 类型支持
 
 shx 子包使用 mvdan.cc/sh/v3 作为解析器，支持以下 shell 类型：
-- **sh** - POSIX shell (默认)
-- **bash** - Bash shell
+- **bash** - Bash shell (默认)
+- **sh** - POSIX shell 
 
 ### 命令解析特性
 
