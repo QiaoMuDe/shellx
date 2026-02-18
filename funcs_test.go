@@ -9,6 +9,7 @@
 package shellx
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -375,4 +376,248 @@ func FuzzSplit(f *testing.F) {
 			t.Errorf("Expected empty result for whitespace-only input %q, got %v", input, result)
 		}
 	})
+}
+
+// 测试命令分词器在各种场景下的行为
+func TestSplitEdgeCases(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected []string
+		comment  string
+	}{
+		// 基本场景
+		{
+			input:    "echo hello world",
+			expected: []string{"echo", "hello", "world"},
+			comment:  "基本命令拆分",
+		},
+		{
+			input:    "ls -la",
+			expected: []string{"ls", "-la"},
+			comment:  "命令与参数",
+		},
+
+		// 引号场景
+		{
+			input:    `echo "hello world"`,
+			expected: []string{"echo", "hello world"},
+			comment:  "双引号包含空格",
+		},
+		{
+			input:    `echo 'hello world'`,
+			expected: []string{"echo", "hello world"},
+			comment:  "单引号包含空格",
+		},
+		{
+			input:    "echo `hello world`",
+			expected: []string{"echo", "hello world"},
+			comment:  "反引号包含空格",
+		},
+		{
+			input:    `echo ""`,
+			expected: []string{"echo", ""},
+			comment:  "空双引号",
+		},
+		{
+			input:    `echo ''`,
+			expected: []string{"echo", ""},
+			comment:  "空单引号",
+		},
+
+		// 未闭合引号场景
+		{
+			input:    `echo "hello world`,
+			expected: []string{"echo", "hello world"},
+			comment:  "未闭合双引号（忽略错误）",
+		},
+		{
+			input:    `echo 'hello world`,
+			expected: []string{"echo", "hello world"},
+			comment:  "未闭合单引号（忽略错误）",
+		},
+		{
+			input:    "echo `hello world",
+			expected: []string{"echo", "hello world"},
+			comment:  "未闭合反引号（忽略错误）",
+		},
+
+		// 复杂引号场景
+		{
+			input:    `echo "hello 'world'"`,
+			expected: []string{"echo", "hello 'world'"},
+			comment:  "双引号内包含单引号",
+		},
+		{
+			input:    `echo 'hello "world"'`,
+			expected: []string{"echo", `hello "world"`},
+			comment:  "单引号内包含双引号",
+		},
+		{
+			input:    `echo ""hello""`,
+			expected: []string{"echo", "hello"},
+			comment:  "连续双引号包围单词",
+		},
+
+		// 特殊字符场景
+		{
+			input:    `echo "hello@#$%^&*()"`,
+			expected: []string{"echo", "hello@#$%^&*()"},
+			comment:  "引号内包含特殊字符",
+		},
+		{
+			input:    `git commit -m "Initial commit"`,
+			expected: []string{"git", "commit", "-m", "Initial commit"},
+			comment:  "Git提交命令",
+		},
+
+		// 空白字符场景
+		{
+			input:    "  ls   -la   ",
+			expected: []string{"ls", "-la"},
+			comment:  "多余空格处理",
+		},
+		{
+			input:    "ls\t-la\t-h",
+			expected: []string{"ls", "-la", "-h"},
+			comment:  "制表符分隔",
+		},
+		{
+			input:    "",
+			expected: []string{},
+			comment:  "空字符串",
+		},
+		{
+			input:    "   ",
+			expected: []string{},
+			comment:  "只有空格",
+		},
+
+		// 换行符场景
+		{
+			input:    "echo \"line1\nline2\"",
+			expected: []string{"echo", "line1\nline2"},
+			comment:  "引号内包含换行符",
+		},
+		{
+			input:    "echo \"line1\rline2\"",
+			expected: []string{"echo", "line1\rline2"},
+			comment:  "引号内包含回车符",
+		},
+
+		// 实际使用场景
+		{
+			input:    `docker run -it --name "my container" ubuntu:latest`,
+			expected: []string{"docker", "run", "-it", "--name", "my container", "ubuntu:latest"},
+			comment:  "Docker运行命令",
+		},
+		{
+			input:    `ssh user@host "ls -la /home/user"`,
+			expected: []string{"ssh", "user@host", "ls -la /home/user"},
+			comment:  "SSH远程命令",
+		},
+		{
+			input:    `curl -H "Content-Type: application/json" -d '{"key":"value"}' http://api.example.com`,
+			expected: []string{"curl", "-H", "Content-Type: application/json", "-d", `{"key":"value"}`, "http://api.example.com"},
+			comment:  "Curl API调用",
+		},
+
+		// Bash 语法场景
+		{
+			input:    `if [ -d "/tmp" ]; then echo "exists"; else echo "not exists"; fi`,
+			expected: []string{"if", "[", "-d", "/tmp", "]", ";", "then", "echo", "exists", ";", "else", "echo", "not exists", ";", "fi"},
+			comment:  "Bash 条件语句",
+		},
+		{
+			input:    `for i in {1..5}; do echo "item $i"; done`,
+			expected: []string{"for", "i", "in", "{1..5}", ";", "do", "echo", "item $i", ";", "done"},
+			comment:  "Bash for 循环",
+		},
+		{
+			input:    `VAR="hello world"; echo $VAR`,
+			expected: []string{"VAR=hello world", ";", "echo", "$VAR"},
+			comment:  "Bash 变量赋值和使用",
+		},
+		{
+			input:    `command1 && command2 || command3`,
+			expected: []string{"command1", "&&", "command2", "||", "command3"},
+			comment:  "Bash 逻辑操作符",
+		},
+		{
+			input:    `find . -name "*.go" -exec grep "pattern" {} \;`,
+			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", ";"},
+			comment:  "Bash find 命令",
+		},
+		{
+			input: `cat <<EOF > file.txt
+Hello World
+EOF`,
+			expected: []string{"cat", "<<", "EOF", ">", "file.txt", "Hello", "World", "EOF"},
+			comment:  "Bash here document",
+		},
+
+		// PowerShell 语法场景
+		{
+			input:    `Get-ChildItem -Path "C:\Program Files" -Recurse | Where-Object {$_.Name -like "*.exe"}`,
+			expected: []string{"Get-ChildItem", "-Path", "C:\\Program Files", "-Recurse", "|", "Where-Object", "{$_.Name", "-like", "*.exe}"},
+			comment:  "PowerShell 管道和过滤器",
+		},
+		{
+			input:    `$files = Get-Content "config.json" | ConvertFrom-Json`,
+			expected: []string{"$files", "=", "Get-Content", "config.json", "|", "ConvertFrom-Json"},
+			comment:  "PowerShell 变量赋值",
+		},
+		{
+			input:    `if (Test-Path "C:\temp") { Write-Host "exists" } else { Write-Host "not exists" }`,
+			expected: []string{"if", "(Test-Path", "C:\\temp)", "{", "Write-Host", "exists", "}", "else", "{", "Write-Host", "not exists", "}"},
+			comment:  "PowerShell 条件语句",
+		},
+		{
+			input:    `foreach ($file in Get-ChildItem "*.txt") { Write-Host $file.Name }`,
+			expected: []string{"foreach", "($file", "in", "Get-ChildItem", "*.txt)", "{", "Write-Host", "$file.Name", "}"},
+			comment:  "PowerShell foreach 循环",
+		},
+		{
+			input:    `Start-Process -FilePath "notepad.exe" -ArgumentList "file.txt" -Wait`,
+			expected: []string{"Start-Process", "-FilePath", "notepad.exe", "-ArgumentList", "file.txt", "-Wait"},
+			comment:  "PowerShell 启动进程",
+		},
+	}
+
+	for i, tc := range testCases {
+		// t.Logf("\n=== 测试用例 %d: %s ===", i+1, tc.comment)
+		// t.Logf("原始字符串: %q", tc.input)
+		// t.Logf("预期结果: %v", tc.expected)
+		fmt.Printf("=== 测试用例 %d: %s ===\n", i+1, tc.comment)
+		fmt.Printf("原始字符串: %q\n", tc.input)
+		fmt.Printf("预期结果: %v\n", tc.expected)
+
+		// 使用 Split 函数
+		result := Split(tc.input)
+		// t.Logf("解析结果: %v", result)
+		fmt.Printf("解析结果: %v, 长度: %d\n", result, len(result))
+
+		// 简单比较
+		if len(result) == len(tc.expected) {
+			match := true
+			for j := range result {
+				if result[j] != tc.expected[j] {
+					match = false
+					break
+				}
+			}
+			if match {
+				// t.Logf("✅ 结果匹配")
+				fmt.Println("✅ 结果匹配")
+			} else {
+				// t.Logf("❌ 结果不匹配")
+				fmt.Println("❌ 结果不匹配")
+			}
+		} else {
+			// t.Logf("❌ 长度不匹配: 期望 %d 个元素，实际 %d 个元素", len(tc.expected), len(result))
+			fmt.Printf("❌ 长度不匹配: 期望 %d 个元素，实际 %d 个元素\n", len(tc.expected), len(result))
+		}
+
+		// t.Logf("---")
+		fmt.Println("---")
+	}
 }

@@ -26,16 +26,16 @@ var (
 
 // UnclosedQuoteError 表示命令字符串中存在未闭合的引号
 type UnclosedQuoteError struct {
-	QuoteType rune // 未闭合的引号类型 ('"', '\'', 或 '`')
+	QuoteType string // 未闭合的引号类型 ("'", 或 '`')
 }
 
 // Error 实现 error 接口
 func (e *UnclosedQuoteError) Error() string {
-	return fmt.Sprintf("unclosed quote in command string: %c", e.QuoteType)
+	return fmt.Sprintf("unclosed quote in command string: %s", e.QuoteType)
 }
 
 // QuoteType 返回未闭合的引号类型
-func (e *UnclosedQuoteError) GetQuoteType() rune {
+func (e *UnclosedQuoteError) GetQuoteType() string {
 	return e.QuoteType
 }
 
