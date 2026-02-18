@@ -544,7 +544,7 @@ func TestSplitEdgeCases(t *testing.T) {
 		},
 		{
 			input:    `find . -name "*.go" -exec grep "pattern" {} \;`,
-			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", ";"},
+			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", "\\;"},
 			comment:  "Bash find 命令",
 		},
 		{

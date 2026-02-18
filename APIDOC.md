@@ -374,7 +374,7 @@ func Split(cmdStr string) []string
 **特性：**
 - 支持单引号、双引号、反引号
 - 正确处理空引号和连续引号
-- 支持Unicode空白字符处理
+- 支持常见空白字符处理（空格、制表符、换行符等）
 - 支持跨平台换行符（\n, \r, \r\n）
 - 使用strings.Builder优化性能
 
@@ -427,7 +427,7 @@ func SplitE(cmdStr string) ([]string, error)
 **特性：**
 - 支持单引号、双引号、反引号
 - 正确处理空引号和连续引号
-- 支持Unicode空白字符处理
+- 支持常见空白字符处理（空格、制表符、换行符等）
 - 支持跨平台换行符（\n, \r, \r\n）
 - 使用strings.Builder优化性能
 - 返回详细的错误信息
