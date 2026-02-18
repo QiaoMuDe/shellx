@@ -134,7 +134,7 @@ func NewCmdStr(cmdStr string) *Command {
 	}
 
 	if len(cmds) == 0 {
-		panic(fmt.Sprintf("parsed command is empty, original command: %q", cmdStr))
+		panic(fmt.Sprintf("split command is empty, original command: %q", cmdStr))
 	}
 
 	// 调用NewCmds来创建命令对象，复用逻辑
