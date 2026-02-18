@@ -55,14 +55,14 @@ func TestUnicodeSpaceHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ParseCmd(tt.input)
+			result := Split(tt.input)
 			if len(result) != len(tt.expected) {
-				t.Errorf("ParseCmd(%q) = %v, expected %v", tt.input, result, tt.expected)
+				t.Errorf("Split(%q) = %v, expected %v", tt.input, result, tt.expected)
 				return
 			}
 			for i := range result {
 				if result[i] != tt.expected[i] {
-					t.Errorf("ParseCmd(%q) = %v, expected %v", tt.input, result, tt.expected)
+					t.Errorf("Split(%q) = %v, expected %v", tt.input, result, tt.expected)
 					break
 				}
 			}

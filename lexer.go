@@ -5,12 +5,12 @@ import (
 	"unicode"
 )
 
-// parseState 命令解析过程中的状态信息
+// splitState 命令拆分过程中的状态信息
 //
-// 封装了命令解析过程中需要的所有状态变量，
+// 封装了命令拆分过程中需要的所有状态变量，
 // 便于状态管理和参数传递
-type parseState struct {
-	result         []string        // 解析结果
+type splitState struct {
+	result         []string        // 拆分结果
 	builder        strings.Builder // 当前命令片段构建器
 	inQuotes       bool            // 是否在引号中
 	quote          rune            // 当前引号类型
@@ -18,12 +18,12 @@ type parseState struct {
 	emptyQuote     bool            // 当前引号是否为空(用于区分空引号和非空引号）
 }
 
-// newParseState 创建新的解析状态
+// newSplitState 创建新的拆分状态
 //
 // 返回值:
-//   - *parseState: 初始化后的解析状态指针
-func newParseState() *parseState {
-	return &parseState{
+//   - *splitState: 初始化后的拆分状态指针
+func newSplitState() *splitState {
+	return &splitState{
 		result:         make([]string, 0, 8),
 		builder:        strings.Builder{},
 		inQuotes:       false,
@@ -49,7 +49,7 @@ func isQuote(r rune) bool {
 	return strings.ContainsRune("\"'`", r)
 }
 
-// parseCmdInternal 将命令字符串解析为命令切片（内部函数）
+// splitInternal 将命令字符串拆分为命令切片（内部函数）
 //
 // 实现原理：
 //  1. 去除首尾空白
@@ -59,20 +59,20 @@ func isQuote(r rune) bool {
 //  5. 检测未闭合的引号
 //
 // 参数:
-//   - cmdStr: 要解析的命令字符串
+//   - cmdStr: 要拆分的命令字符串
 //
 // 返回值:
-//   - []string: 解析后的命令切片
-//   - error: 解析错误，成功时为 nil
-func parseCmdInternal(cmdStr string) ([]string, error) {
+//   - []string: 拆分后的命令切片
+//   - error: 拆分错误，成功时为 nil
+func splitInternal(cmdStr string) ([]string, error) {
 	// 去除首尾空白
 	cmdStr = strings.TrimSpace(cmdStr)
 	if cmdStr == "" {
 		return []string{}, nil
 	}
 
-	// 初始化解析状态
-	state := newParseState()
+	// 初始化拆分状态
+	state := newSplitState()
 
 	// 遍历每个字符
 	for _, r := range cmdStr {
@@ -115,7 +115,7 @@ func parseCmdInternal(cmdStr string) ([]string, error) {
 //
 // 参数:
 //   - r: 当前字符
-func (s *parseState) handleQuoteChar(r rune) {
+func (s *splitState) handleQuoteChar(r rune) {
 	switch {
 	case !s.inQuotes:
 		// 开始引号
@@ -144,7 +144,7 @@ func (s *parseState) handleQuoteChar(r rune) {
 //   - 1. builder.Len() > 0：片段中有内容（非空）
 //   - 2. hasQuoteInWord：片段中包含过引号（空引号或非空引号）
 //   - 这样可以确保独立空引号被保留，连续引号中的空引号被忽略
-func (s *parseState) handleSeparator() {
+func (s *splitState) handleSeparator() {
 	// 判断是否需要添加当前命令片段
 	if s.builder.Len() > 0 || s.hasQuoteInWord {
 		s.result = append(s.result, s.builder.String()) // 添加当前命令片段

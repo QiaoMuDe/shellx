@@ -1,6 +1,6 @@
 // Package shellx 工具函数测试模块
 // 本文件包含 shellx 包中工具函数的单元测试，包括：
-//   - 命令解析函数测试
+//   - 命令拆分函数测试
 //   - 快速执行函数测试
 //   - 环境变量验证测试
 //   - 错误处理测试
@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestParseCmd(t *testing.T) {
+func TestSplit(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -213,15 +213,15 @@ func TestParseCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ParseCmd(tt.input)
+			result := Split(tt.input)
 			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("ParseCmd(%q) = %v, expected %v", tt.input, result, tt.expected)
+				t.Errorf("Split(%q) = %v, expected %v", tt.input, result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestParseCmdE(t *testing.T) {
+func TestSplitE(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
@@ -291,25 +291,25 @@ func TestParseCmdE(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseCmdE(tt.input)
+			result, err := SplitE(tt.input)
 
 			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("ParseCmdE(%q) = %v, expected %v", tt.input, result, tt.expected)
+				t.Errorf("SplitE(%q) = %v, expected %v", tt.input, result, tt.expected)
 			}
 
 			if tt.expectError && err == nil {
-				t.Errorf("ParseCmdE(%q) expected error, got nil", tt.input)
+				t.Errorf("SplitE(%q) expected error, got nil", tt.input)
 			}
 
 			if !tt.expectError && err != nil {
-				t.Errorf("ParseCmdE(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("SplitE(%q) unexpected error: %v", tt.input, err)
 			}
 		})
 	}
 }
 
 // 基准测试
-func BenchmarkParseCmd(b *testing.B) {
+func BenchmarkSplit(b *testing.B) {
 	testCases := []string{
 		"ls -la",
 		`echo "hello world"`,
@@ -321,25 +321,25 @@ func BenchmarkParseCmd(b *testing.B) {
 	for _, tc := range testCases {
 		b.Run(tc, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				ParseCmd(tc)
+				Split(tc)
 			}
 		})
 	}
 }
 
 // 测试大量数据的性能
-func BenchmarkParseCmdLarge(b *testing.B) {
+func BenchmarkSplitLarge(b *testing.B) {
 	// 构造一个较长的命令
 	longCmd := `find /very/long/path/to/search -name "*.go" -o -name "*.js" -o -name "*.py" -type f -exec grep -l "very long pattern to search for in files" {} \; | head -100`
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ParseCmd(longCmd)
+		Split(longCmd)
 	}
 }
 
 // 模糊测试（如果Go版本支持）
-func FuzzParseCmd(f *testing.F) {
+func FuzzSplit(f *testing.F) {
 	// 添加种子语料
 	seeds := []string{
 		"ls -la",
@@ -358,7 +358,7 @@ func FuzzParseCmd(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, input string) {
 		// 确保函数不会panic
-		result := ParseCmd(input)
+		result := Split(input)
 
 		// 基本不变性检查：确保函数不会panic
 		_ = result

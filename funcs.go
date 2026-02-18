@@ -6,26 +6,29 @@ import (
 	"time"
 )
 
-// ParseCmd 将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)
+// Split 将命令字符串拆分为命令切片，支持引号处理(单引号、双引号、反引号)
 //
 // 实现原理：
 //  1. 去除首尾空白
 //  2. 遍历每个字符
 //  3. 处理引号状态切换
 //  4. 在非引号状态下遇到空格时分割
-//  5. 检测未闭合的引号
+//  5. 忽略未闭合的引号等错误，返回部分结果
 //
 // 参数:
-//   - cmdStr: 要解析的命令字符串
+//   - cmdStr: 要拆分的命令字符串
 //
 // 返回值:
-//   - []string: 解析后的命令切片
-func ParseCmd(cmdStr string) []string {
-	result, _ := parseCmdInternal(cmdStr)
+//   - []string: 拆分后的命令切片 (最佳结果)
+//
+// 注意：
+//   - 此函数忽略拆分错误，返回最佳拆分结果。如需错误信息，请使用 SplitE 函数。
+func Split(cmdStr string) []string {
+	result, _ := splitInternal(cmdStr)
 	return result
 }
 
-// ParseCmdE 将命令字符串解析为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
+// SplitE 将命令字符串拆分为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
 //
 // 实现原理：
 //  1. 去除首尾空白
@@ -35,13 +38,13 @@ func ParseCmd(cmdStr string) []string {
 //  5. 检测未闭合的引号并返回错误
 //
 // 参数:
-//   - cmdStr: 要解析的命令字符串
+//   - cmdStr: 要拆分的命令字符串
 //
 // 返回值:
-//   - []string: 解析后的命令切片
-//   - error: 解析错误，成功时为 nil
-func ParseCmdE(cmdStr string) ([]string, error) {
-	return parseCmdInternal(cmdStr)
+//   - []string: 拆分后的命令切片
+//   - error: 拆分错误，成功时为 nil
+func SplitE(cmdStr string) ([]string, error) {
+	return splitInternal(cmdStr)
 }
 
 // FindCmd 查找命令

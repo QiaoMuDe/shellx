@@ -354,13 +354,15 @@ func FindCmd(name string) (string, error)
 
 ---
 
-### ParseCmd
+### Split
 
 ```go
-func ParseCmd(cmdStr string) []string
+func Split(cmdStr string) []string
 ```
 
-将命令字符串解析为命令切片，支持引号处理(单引号、双引号、反引号)，出错时返回空切片
+将命令字符串拆分为命令切片，支持引号处理(单引号、双引号、反引号)
+
+**注意：此函数忽略拆分错误，返回最佳拆分结果。如需错误信息，请使用 SplitE 函数。**
 
 **实现原理：**
 1. 去除首尾空白
@@ -377,39 +379,43 @@ func ParseCmd(cmdStr string) []string
 - 使用strings.Builder优化性能
 
 **参数:**
-- `cmdStr`: 要解析的命令字符串
+- `cmdStr`: 要拆分的命令字符串
 
 **返回值:**
-- `[]string`: 解析后的命令切片
+- `[]string`: 拆分后的命令切片
 
 **示例:**
 ```go
-// 基本解析
-result := shellx.ParseCmd("echo hello world")
+// 基本拆分
+result := shellx.Split("echo hello world")
 // 结果: ["echo", "hello", "world"]
 
 // 引号处理
-result := shellx.ParseCmd(`echo "hello world" 'test'`)
+result := shellx.Split(`echo "hello world" 'test'`)
 // 结果: ["echo", "hello world", "test"]
 
 // 空引号处理
-result := shellx.ParseCmd(`echo ""hello""`)
+result := shellx.Split(`echo ""hello""`)
 // 结果: ["echo", "hello"]
 
+// 未闭合引号（忽略错误）
+result := shellx.Split(`echo "hello world`)
+// 结果: ["echo", "hello world"]  // 忽略未闭合引号错误
+
 // 跨平台换行符
-result := shellx.ParseCmd("echo \"line1\nline2\"")
+result := shellx.Split("echo \"line1\nline2\"")
 // 结果: ["echo", "line1\nline2"]
 ```
 
 ---
 
-### ParseCmdE
+### SplitE
 
 ```go
-func ParseCmdE(cmdStr string) ([]string, error)
+func SplitE(cmdStr string) ([]string, error)
 ```
 
-将命令字符串解析为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
+将命令字符串拆分为命令切片（带错误信息），支持引号处理(单引号、双引号、反引号)
 
 **实现原理：**
 1. 去除首尾空白
@@ -427,27 +433,27 @@ func ParseCmdE(cmdStr string) ([]string, error)
 - 返回详细的错误信息
 
 **参数:**
-- `cmdStr`: 要解析的命令字符串
+- `cmdStr`: 要拆分的命令字符串
 
 **返回值:**
-- `[]string`: 解析后的命令切片
-- `error: 解析错误，成功时为 nil
+- `[]string`: 拆分后的命令切片
+- `error: 拆分错误，成功时为 nil
 
 **错误类型:**
 - `*UnclosedQuoteError`: 未闭合引号错误，包含引号类型信息
 
 **示例:**
 ```go
-// 基本解析
-result, err := shellx.ParseCmdE("echo hello world")
+// 基本拆分
+result, err := shellx.SplitE("echo hello world")
 // 结果: ["echo", "hello", "world"], err: nil
 
 // 引号处理
-result, err := shellx.ParseCmdE(`echo "hello world" 'test'`)
+result, err := shellx.SplitE(`echo "hello world" 'test'`)
 // 结果: ["echo", "hello world", "test"], err: nil
 
 // 未闭合引号错误
-result, err := shellx.ParseCmdE(`echo "hello world`)
+result, err := shellx.SplitE(`echo "hello world`)
 // 结果: ["echo", "hello world"], err: *UnclosedQuoteError{QuoteType: '"'}
 
 // 检查错误类型

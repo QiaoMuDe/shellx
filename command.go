@@ -127,10 +127,10 @@ func NewCmdStr(cmdStr string) *Command {
 		panic("cmdStr must not be empty")
 	}
 
-	cmds, err := ParseCmdE(cmdStr) // 使用命令解析器解析命令字符串
+	cmds, err := SplitE(cmdStr) // 使用命令拆分器拆分命令字符串
 	if err != nil {
-		// 解析失败时触发panic，快速提醒开发者
-		panic(fmt.Sprintf("command parse failed: %v, original command: %q", err, cmdStr))
+		// 拆分失败时触发panic，快速提醒开发者
+		panic(fmt.Sprintf("command split failed: %v, original command: %q", err, cmdStr))
 	}
 
 	if len(cmds) == 0 {
