@@ -131,30 +131,26 @@ func (s *splitState) flushBuilder() {
 // handleEscapeChar 处理转义字符的逻辑
 //
 // 将转义字符和下一个字符作为一个整体处理
-// 对于某些特殊字符（如;），保持转义形式
+// 保持转义符和字符，不改变原始内容
 //
 // 参数:
 //   - state: 拆分状态
-//   - cmdStr: 输入字符串
+//   - runes: 输入的 rune 切片
 //   - i: 当前位置
 //
 // 返回值:
 //   - int: 新的位置索引
 func (s *splitState) handleEscapeChar(runes []rune, i int) int {
-	s.flushBuilder()
-
-	if i+1 < len(runes) {
-		escapedChar := runes[i+1]
-		switch escapedChar {
-		case ';':
-			s.result = append(s.result, "\\;")
-		default:
-			s.result = append(s.result, string(escapedChar))
-		}
+	// 转义符是最后一个字符的情况
+	if i+1 >= len(runes) {
+		s.builder.WriteString("\\")
+		return i + 1
 	}
 
-	s.emptyQuote = false
-	return i + 1
+	// 正常情况：保持转义符和下一个字符
+	nextChar := runes[i+1]
+	s.builder.WriteString("\\" + string(nextChar))
+	return i + 2 // 跳过转义符和被转义的字符
 }
 
 // checkMultiCharOperator 检查并处理多字符操作符
@@ -243,9 +239,9 @@ func splitInternal(cmdStr string) ([]string, error) {
 	for i := 0; i < len(runes); i++ {
 		currentRune := runes[i]
 
-		// 处理转义字符
-		if currentRune == '\\' && i+1 < len(runes) && !state.inQuotes {
-			i = state.handleEscapeChar(runes, i)
+		// 处理转义字符（统一处理，保持原样）
+		if currentRune == '\\' && i+1 < len(runes) {
+			i = state.handleEscapeChar(runes, i) - 1
 			continue
 		}
 

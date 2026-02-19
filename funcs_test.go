@@ -544,8 +544,83 @@ func TestSplitEdgeCases(t *testing.T) {
 		},
 		{
 			input:    `find . -name "*.go" -exec grep "pattern" {} \;`,
-			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", "\\;"},
+			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", `\;`},
 			comment:  "Bash find 命令",
+		},
+		{
+			input:    `echo "Hello\nWorld"`,
+			expected: []string{"echo", `Hello\nWorld`},
+			comment:  "转义换行符",
+		},
+		{
+			input:    `echo "Hello\tWorld"`,
+			expected: []string{"echo", `Hello\tWorld`},
+			comment:  "转义制表符",
+		},
+		{
+			input:    `echo "Hello\\World"`,
+			expected: []string{"echo", `Hello\\World`},
+			comment:  "转义反斜杠",
+		},
+		{
+			input:    `echo "Hello\"World"`,
+			expected: []string{"echo", `Hello\"World`},
+			comment:  "转义双引号",
+		},
+		{
+			input:    `echo "Hello\'World"`,
+			expected: []string{"echo", `Hello\'World`},
+			comment:  "转义单引号",
+		},
+		{
+			input:    `echo "Hello\ World"`,
+			expected: []string{"echo", `Hello\ World`},
+			comment:  "转义空格",
+		},
+		{
+			input:    `echo "Hello\$World"`,
+			expected: []string{"echo", `Hello\$World`},
+			comment:  "转义美元符号",
+		},
+		{
+			input:    `echo "Hello\&World"`,
+			expected: []string{"echo", `Hello\&World`},
+			comment:  "转义与符号",
+		},
+		{
+			input:    `echo "Hello\|World"`,
+			expected: []string{"echo", `Hello\|World`},
+			comment:  "转义管道符",
+		},
+		{
+			input:    `echo "Hello\<World"`,
+			expected: []string{"echo", `Hello\<World`},
+			comment:  "转义小于号",
+		},
+		{
+			input:    `echo "Hello\>World"`,
+			expected: []string{"echo", `Hello\>World`},
+			comment:  "转义大于号",
+		},
+		{
+			input:    `echo "Hello\;World"`,
+			expected: []string{"echo", `Hello\;World`},
+			comment:  "转义分号",
+		},
+		{
+			input:    `echo \\`,
+			expected: []string{"echo", `\\`},
+			comment:  "转义符在末尾",
+		},
+		{
+			input:    `find . -name "*.go" -exec grep "pattern" {} \;`,
+			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", `\;`},
+			comment:  "双反斜杠转义分号",
+		},
+		{
+			input:    `find . -name "*.go" -exec grep "pattern" {} \;`,
+			expected: []string{"find", ".", "-name", "*.go", "-exec", "grep", "pattern", "{}", `\;`},
+			comment:  "三反斜杠转义分号",
 		},
 		{
 			input: `cat <<EOF > file.txt
