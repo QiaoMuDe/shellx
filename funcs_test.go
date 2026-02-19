@@ -621,3 +621,303 @@ EOF`,
 		fmt.Println("---")
 	}
 }
+
+func TestUnicodeSplit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		// 中文测试
+		{
+			name:     "中文命令",
+			input:    "echo 你好世界",
+			expected: []string{"echo", "你好世界"},
+		},
+		{
+			name:     "中文带空格",
+			input:    "echo 你好 世界",
+			expected: []string{"echo", "你好", "世界"},
+		},
+		{
+			name:     "中文引号",
+			input:    `echo "你好世界"`,
+			expected: []string{"echo", "你好世界"},
+		},
+		{
+			name:     "中文单引号",
+			input:    `echo '你好世界'`,
+			expected: []string{"echo", "你好世界"},
+		},
+		{
+			name:     "中文混合英文",
+			input:    "echo hello 你好 world 世界",
+			expected: []string{"echo", "hello", "你好", "world", "世界"},
+		},
+		{
+			name:     "中文路径",
+			input:    `ls "/home/用户/文档"`,
+			expected: []string{"ls", "/home/用户/文档"},
+		},
+
+		// Emoji 测试
+		{
+			name:     "单个emoji",
+			input:    "echo 🎉",
+			expected: []string{"echo", "🎉"},
+		},
+		{
+			name:     "多个emoji",
+			input:    "echo 🎉🚀✨",
+			expected: []string{"echo", "🎉🚀✨"},
+		},
+		{
+			name:     "emoji带空格",
+			input:    "echo 🎉 🚀 ✨",
+			expected: []string{"echo", "🎉", "🚀", "✨"},
+		},
+		{
+			name:     "emoji引号",
+			input:    `echo "🎉🚀✨"`,
+			expected: []string{"echo", "🎉🚀✨"},
+		},
+		{
+			name:     "emoji混合中文",
+			input:    "echo 你好🎉世界🚀",
+			expected: []string{"echo", "你好🎉世界🚀"},
+		},
+		{
+			name:     "emoji混合英文",
+			input:    "echo hello 🎉 world 🚀",
+			expected: []string{"echo", "hello", "🎉", "world", "🚀"},
+		},
+
+		// 日文测试
+		{
+			name:     "日文命令",
+			input:    "echo こんにちは",
+			expected: []string{"echo", "こんにちは"},
+		},
+		{
+			name:     "日文平假名片假名混合",
+			input:    "echo こんにちはカタカナ",
+			expected: []string{"echo", "こんにちはカタカナ"},
+		},
+
+		// 韩文测试
+		{
+			name:     "韩文命令",
+			input:    "echo 안녕하세요",
+			expected: []string{"echo", "안녕하세요"},
+		},
+
+		// 阿拉伯文测试（从右到左）
+		{
+			name:     "阿拉伯文",
+			input:    "echo مرحبا",
+			expected: []string{"echo", "مرحبا"},
+		},
+
+		// 俄文测试
+		{
+			name:     "俄文命令",
+			input:    "echo привет",
+			expected: []string{"echo", "привет"},
+		},
+
+		// 希腊文测试
+		{
+			name:     "希腊文",
+			input:    "echo γεια σας",
+			expected: []string{"echo", "γεια", "σας"},
+		},
+
+		// 泰文测试
+		{
+			name:     "泰文",
+			input:    "echo สวัสดี",
+			expected: []string{"echo", "สวัสดี"},
+		},
+
+		// 复杂组合测试
+		{
+			name:     "中文emoji英文混合",
+			input:    `echo "你好🎉Hello世界🚀World"`,
+			expected: []string{"echo", "你好🎉Hello世界🚀World"},
+		},
+		{
+			name:     "多语言混合",
+			input:    "echo 你好🎉こんにちは🚀안녕하세요✨",
+			expected: []string{"echo", "你好🎉こんにちは🚀안녕하세요✨"},
+		},
+		{
+			name:     "特殊符号emoji",
+			input:    "echo ♪♫♬♩♭♯",
+			expected: []string{"echo", "♪♫♬♩♭♯"},
+		},
+		{
+			name:     "数学符号emoji",
+			input:    "echo ➕➖✖️➗",
+			expected: []string{"echo", "➕➖✖️➗"},
+		},
+		{
+			name:     "旗帜emoji",
+			input:    "echo 🇨🇳🇺🇸🇯🇵",
+			expected: []string{"echo", "🇨🇳🇺🇸🇯🇵"},
+		},
+
+		// 实际场景测试
+		{
+			name:     "Git提交中文",
+			input:    `git commit -m "添加新功能"`,
+			expected: []string{"git", "commit", "-m", "添加新功能"},
+		},
+		{
+			name:     "Docker容器名中文",
+			input:    `docker run --name "测试容器" nginx`,
+			expected: []string{"docker", "run", "--name", "测试容器", "nginx"},
+		},
+		{
+			name:     "文件路径中文",
+			input:    `cp "/home/用户/文档/文件.txt" "/home/用户/备份/"`,
+			expected: []string{"cp", "/home/用户/文档/文件.txt", "/home/用户/备份/"},
+		},
+		{
+			name:     "SSH中文路径",
+			input:    `ssh user@host "ls -la /home/用户/文档"`,
+			expected: []string{"ssh", "user@host", "ls -la /home/用户/文档"},
+		},
+
+		// 边界测试
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: []string{},
+		},
+		{
+			name:     "只有空格",
+			input:    "   ",
+			expected: []string{},
+		},
+		{
+			name:     "只有中文",
+			input:    "你好世界",
+			expected: []string{"你好世界"},
+		},
+		{
+			name:     "只有emoji",
+			input:    "🎉🚀✨",
+			expected: []string{"🎉🚀✨"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Split(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Split(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestUnicodeSplitE(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    []string
+		expectError bool
+	}{
+		// 基本Unicode测试
+		{
+			name:        "中文命令",
+			input:       "echo 你好世界",
+			expected:    []string{"echo", "你好世界"},
+			expectError: false,
+		},
+		{
+			name:        "emoji命令",
+			input:       "echo 🎉",
+			expected:    []string{"echo", "🎉"},
+			expectError: false,
+		},
+		{
+			name:        "中文引号",
+			input:       `echo "你好世界"`,
+			expected:    []string{"echo", "你好世界"},
+			expectError: false,
+		},
+		{
+			name:        "emoji引号",
+			input:       `echo "🎉🚀✨"`,
+			expected:    []string{"echo", "🎉🚀✨"},
+			expectError: false,
+		},
+
+		// 未闭合引号测试
+		{
+			name:        "未闭合中文引号",
+			input:       `echo "你好世界`,
+			expected:    []string{"echo", "你好世界"},
+			expectError: true,
+		},
+		{
+			name:        "未闭合emoji引号",
+			input:       `echo "🎉🚀✨`,
+			expected:    []string{"echo", "🎉🚀✨"},
+			expectError: true,
+		},
+
+		// 多语言混合
+		{
+			name:        "多语言混合",
+			input:       "echo 你好🎉こんにちは🚀안녕하세요✨",
+			expected:    []string{"echo", "你好🎉こんにちは🚀안녕하세요✨"},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := SplitE(tt.input)
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("SplitE(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+
+			if tt.expectError && err == nil {
+				t.Errorf("SplitE(%q) expected error, got nil", tt.input)
+			}
+
+			if !tt.expectError && err != nil {
+				t.Errorf("SplitE(%q) unexpected error: %v", tt.input, err)
+			}
+
+			if tt.expectError && err != nil {
+				if unclosedErr, ok := err.(*UnclosedQuoteError); ok {
+					t.Logf("未闭合引号类型: %c", unclosedErr.QuoteType)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkUnicode(b *testing.B) {
+	testCases := []string{
+		"echo 你好世界",
+		"echo 🎉🚀✨",
+		`echo "你好世界"`,
+		`echo "🎉🚀✨"`,
+		"echo 你好🎉世界🚀",
+		`git commit -m "添加新功能"`,
+		`docker run --name "测试容器" nginx`,
+	}
+
+	for _, tc := range testCases {
+		b.Run(tc, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				Split(tc)
+			}
+		})
+	}
+}
