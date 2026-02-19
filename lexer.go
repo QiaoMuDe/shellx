@@ -101,10 +101,7 @@ func (s *splitState) handleSpecialChar(ch rune) {
 		// 引号外：特殊字符作为独立token处理
 
 		// 1. 先处理当前累积的token
-		if s.builder.Len() > 0 {
-			s.result = append(s.result, s.builder.String())
-			s.builder.Reset()
-		}
+		s.flushBuilder()
 
 		// 2. 将特殊字符作为独立token添加到结果中
 		s.result = append(s.result, string(ch))
@@ -112,6 +109,23 @@ func (s *splitState) handleSpecialChar(ch rune) {
 
 	// 3. 重置空引号状态标记
 	s.emptyQuote = false
+}
+
+// flushBuilder 将 builder 中的内容添加到结果中并重置
+//
+// 如果 builder 中有内容，则将其作为独立的 token 添加到结果中，
+// 然后重置 builder，准备下一个 token 的构建
+//
+// 参数:
+//   - 无
+//
+// 返回值:
+//   - 无
+func (s *splitState) flushBuilder() {
+	if s.builder.Len() > 0 {
+		s.result = append(s.result, s.builder.String())
+		s.builder.Reset()
+	}
 }
 
 // handleEscapeChar 处理转义字符的逻辑
@@ -127,10 +141,7 @@ func (s *splitState) handleSpecialChar(ch rune) {
 // 返回值:
 //   - int: 新的位置索引
 func (s *splitState) handleEscapeChar(runes []rune, i int) int {
-	if s.builder.Len() > 0 {
-		s.result = append(s.result, s.builder.String())
-		s.builder.Reset()
-	}
+	s.flushBuilder()
 
 	if i+1 < len(runes) {
 		escapedChar := runes[i+1]
@@ -148,9 +159,15 @@ func (s *splitState) handleEscapeChar(runes []rune, i int) int {
 
 // checkMultiCharOperator 检查并处理多字符操作符
 //
+// 支持的多字符操作符:
+//   - && : 逻辑与
+//   - || : 逻辑或
+//   - >> : 追加重定向
+//   - << : here document
+//
 // 参数:
 //   - state: 拆分状态
-//   - cmdStr: 输入字符串
+//   - runes: 输入的 rune 切片
 //   - i: 当前位置
 //
 // 返回值:
@@ -161,21 +178,37 @@ func checkMultiCharOperator(state *splitState, runes []rune, i int) (bool, int) 
 		return false, i
 	}
 
-	twoChar := string(runes[i : i+2])
-	switch twoChar {
-	case "&&", "||", ">>", "<<":
-		// 先处理当前累积的token
-		if state.builder.Len() > 0 {
-			state.result = append(state.result, state.builder.String())
-			state.builder.Reset()
-		}
-		// 将多字符操作符作为独立token
-		state.result = append(state.result, twoChar)
-		// 跳过多字符操作符的长度
+	switch {
+	case runes[i] == '&' && runes[i+1] == '&':
+		// 处理&&操作符
+		state.flushBuilder()
+		state.result = append(state.result, "&&")
 		state.emptyQuote = false
-		return true, i + 1 // 跳过下一个字符
+		return true, i + 1
+
+	case runes[i] == '|' && runes[i+1] == '|':
+		// 处理||操作符
+		state.flushBuilder()
+		state.result = append(state.result, "||")
+		state.emptyQuote = false
+		return true, i + 1
+
+	case runes[i] == '>' && runes[i+1] == '>':
+		// 处理>>操作符
+		state.flushBuilder()
+		state.result = append(state.result, ">>")
+		state.emptyQuote = false
+		return true, i + 1
+
+	case runes[i] == '<' && runes[i+1] == '<':
+		// 处理<<操作符
+		state.flushBuilder()
+		state.result = append(state.result, "<<")
+		state.emptyQuote = false
+		return true, i + 1
 
 	default:
+		// 其他情况：不是多字符操作符
 		return false, i
 	}
 }
@@ -286,9 +319,6 @@ func (s *splitState) handleQuoteChar(ch rune) {
 //   - 只在有内容时添加token，避免空字符串token
 func (s *splitState) handleSeparator() {
 	// 判断是否需要添加当前命令片段
-	if s.builder.Len() > 0 {
-		s.result = append(s.result, s.builder.String()) // 添加当前命令片段
-		s.builder.Reset()                               // 重置构建器，准备下一个片段
-	}
+	s.flushBuilder()
 	s.hasQuoteInWord = false // 重置标记，为下一个片段做准备
 }
