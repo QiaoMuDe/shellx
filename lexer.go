@@ -8,18 +8,18 @@ import (
 // shell特殊字符集合
 //
 // 包含常见的shell特殊字符，用于命令分隔、管道、重定向等操作
-var specialChars = map[string]bool{
-	";": true, // 命令分隔符
-	"|": true, // 管道符
-	">": true, // 重定向符
-	"<": true, // 重定向符
-	"&": true, // 后台运行/逻辑运算
-	"!": true, // 逻辑非
-	"`": true, // 命令替换
-	"*": true, // 通配符
-	"?": true, // 通配符
-	"#": true, // 注释符
-	"~": true, // 家目录
+var specialChars = map[rune]bool{
+	';': true, // 命令分隔符
+	'|': true, // 管道符
+	'>': true, // 重定向符
+	'<': true, // 重定向符
+	'&': true, // 后台运行/逻辑运算
+	'!': true, // 逻辑非
+	'`': true, // 命令替换
+	'*': true, // 通配符
+	'?': true, // 通配符
+	'#': true, // 注释符
+	'~': true, // 家目录
 }
 
 // splitState 命令拆分过程中的状态信息
@@ -30,7 +30,7 @@ type splitState struct {
 	result         []string        // 拆分结果
 	builder        strings.Builder // 当前命令片段构建器
 	inQuotes       bool            // 是否在引号中
-	quote          string          // 当前引号类型
+	quote          rune            // 当前引号类型
 	hasQuoteInWord bool            // 当前片段是否包含过引号(用于处理空引号情况)
 	emptyQuote     bool            // 当前引号是否为空(用于区分空引号和非空引号）
 }
@@ -44,7 +44,7 @@ func newSplitState() *splitState {
 		result:         make([]string, 0, 8),
 		builder:        strings.Builder{},
 		inQuotes:       false,
-		quote:          "",
+		quote:          0,
 		hasQuoteInWord: false,
 		emptyQuote:     false,
 	}
@@ -62,9 +62,9 @@ func newSplitState() *splitState {
 //
 // 返回值:
 //   - bool: 如果是引号返回 true，否则返回 false
-func isQuote(ch string) bool {
+func isQuote(ch rune) bool {
 	switch ch {
-	case "\"", "'", "`":
+	case '"', '\'', '`':
 		return true
 	default:
 		return false
@@ -78,7 +78,7 @@ func isQuote(ch string) bool {
 //
 // 返回值:
 //   - bool: 如果是特殊字符返回 true，否则返回 false
-func isSpecialChar(ch string) bool {
+func isSpecialChar(ch rune) bool {
 	return specialChars[ch]
 }
 
@@ -90,11 +90,11 @@ func isSpecialChar(ch string) bool {
 // 参数:
 //   - state: 拆分状态
 //   - ch: 当前字符
-func (s *splitState) handleSpecialChar(ch string) {
+func (s *splitState) handleSpecialChar(ch rune) {
 	// 根据是否在引号内采用不同的处理策略
 	if s.inQuotes {
 		// 引号内：特殊字符作为普通字符处理
-		s.builder.WriteString(ch)
+		s.builder.WriteRune(ch)
 	} else {
 		// 引号外：特殊字符作为独立token处理
 
@@ -105,7 +105,7 @@ func (s *splitState) handleSpecialChar(ch string) {
 		}
 
 		// 2. 将特殊字符作为独立token添加到结果中
-		s.result = append(s.result, ch)
+		s.result = append(s.result, string(ch))
 	}
 
 	// 3. 重置空引号状态标记
@@ -124,27 +124,24 @@ func (s *splitState) handleSpecialChar(ch string) {
 //
 // 返回值:
 //   - int: 新的位置索引
-func (s *splitState) handleEscapeChar(cmdStr string, i int) int {
-	// 先处理当前累积的token
+func (s *splitState) handleEscapeChar(runes []rune, i int) int {
 	if s.builder.Len() > 0 {
 		s.result = append(s.result, s.builder.String())
 		s.builder.Reset()
 	}
 
-	// 获取被转义的字符
-	escapedChar := cmdStr[i+1]
-
-	// 对于某些特殊字符，保持转义形式
-	switch escapedChar {
-	case ';': // 分号在find -exec等命令中需要转义
-		s.result = append(s.result, "\\;")
-	default:
-		// 其他情况，只保留被转义的字符，去掉反斜杠
-		s.result = append(s.result, string(escapedChar))
+	if i+1 < len(runes) {
+		escapedChar := runes[i+1]
+		switch escapedChar {
+		case ';':
+			s.result = append(s.result, "\\;")
+		default:
+			s.result = append(s.result, string(escapedChar))
+		}
 	}
 
 	s.emptyQuote = false
-	return i + 1 // 返回跳过后的位置
+	return i + 1
 }
 
 // checkMultiCharOperator 检查并处理多字符操作符
@@ -157,13 +154,12 @@ func (s *splitState) handleEscapeChar(cmdStr string, i int) int {
 // 返回值:
 //   - bool: 如果是多字符操作符返回 true，否则返回 false
 //   - int: 新的位置索引（如果是多字符操作符）
-func checkMultiCharOperator(state *splitState, cmdStr string, i int) (bool, int) {
-	// 检查多字符操作符
-	if i+1 >= len(cmdStr) {
+func checkMultiCharOperator(state *splitState, runes []rune, i int) (bool, int) {
+	if i+1 >= len(runes) {
 		return false, i
 	}
 
-	twoChar := cmdStr[i : i+2]
+	twoChar := string(runes[i : i+2])
 	switch twoChar {
 	case "&&", "||", ">>", "<<":
 		// 先处理当前累积的token
@@ -206,40 +202,40 @@ func splitInternal(cmdStr string) ([]string, error) {
 
 	// 初始化拆分状态
 	state := newSplitState()
+	runes := []rune(cmdStr)
 
 	// 遍历每个字符
-	for i := 0; i < len(cmdStr); i++ {
+	for i := 0; i < len(runes); i++ {
+		currentRune := runes[i]
+
 		// 处理转义字符
-		if cmdStr[i] == '\\' && i+1 < len(cmdStr) && !state.inQuotes {
-			i = state.handleEscapeChar(cmdStr, i)
+		if currentRune == '\\' && i+1 < len(runes) && !state.inQuotes {
+			i = state.handleEscapeChar(runes, i)
 			continue
 		}
 
-		// 获取当前字符
-		currentChar := cmdStr[i : i+1]
-
 		// 检查多字符操作符
-		if isMultiOp, newPos := checkMultiCharOperator(state, cmdStr, i); isMultiOp {
+		if isMultiOp, newPos := checkMultiCharOperator(state, runes, i); isMultiOp {
 			i = newPos
 			continue
 		}
 
 		switch {
-		case isQuote(currentChar):
-			// 处理引号字符
-			state.handleQuoteChar(currentChar)
+		case isQuote(currentRune):
+			// 引号字符处理
+			state.handleQuoteChar(currentRune)
 
-		case isSpecialChar(currentChar):
-			// 处理特殊字符（分号、管道符等）
-			state.handleSpecialChar(currentChar)
+		case isSpecialChar(currentRune):
+			// 特殊字符处理
+			state.handleSpecialChar(currentRune)
 
-		case unicode.IsSpace(rune(currentChar[0])) && !state.inQuotes:
-			// 统一处理所有空白字符分隔符（包括换行符）
+		case unicode.IsSpace(currentRune) && !state.inQuotes:
+			// 处理空格分隔符换行符等
 			state.handleSeparator()
 
 		default:
 			// 处理普通字符
-			state.builder.WriteString(currentChar)
+			state.builder.WriteRune(currentRune)
 			state.emptyQuote = false
 		}
 	}
@@ -261,26 +257,23 @@ func splitInternal(cmdStr string) ([]string, error) {
 //
 // 参数:
 //   - ch: 当前字符
-func (s *splitState) handleQuoteChar(ch string) {
+func (s *splitState) handleQuoteChar(ch rune) {
 	switch {
-	case !s.inQuotes:
-		// 开始引号
-		s.inQuotes = true   // 进入引号状态
+	case !s.inQuotes: // 进入引号状态
+		s.inQuotes = true   // 标记进入引号状态
 		s.quote = ch        // 记录当前引号类型
-		s.emptyQuote = true // 假设为空引号，直到遇到非引号字符
+		s.emptyQuote = true // 初始化空引号状态为 true
 
-	case ch == s.quote:
-		// 结束引号
-		s.inQuotes = false
-		// 处理空引号逻辑：非空引号或独立空引号才设置 hasQuoteInWord
+	case ch == s.quote: // 退出引号状态
+		s.inQuotes = false // 标记退出引号状态
+		// 检查引号内是否有内容（非空）
 		if !s.emptyQuote || s.builder.Len() == 0 {
 			s.hasQuoteInWord = true
 		}
 
-	default:
-		// 引号内的其他引号字符
-		s.builder.WriteString(ch) // 直接添加引号字符
-		s.emptyQuote = false      // 有内容，不是空引号
+	default: // 引号内：普通字符处理
+		s.builder.WriteRune(ch)
+		s.emptyQuote = false
 	}
 }
 

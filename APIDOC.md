@@ -377,6 +377,7 @@ func Split(cmdStr string) []string
 - 支持常见空白字符处理（空格、制表符、换行符等）
 - 支持跨平台换行符（\n, \r, \r\n）
 - 使用strings.Builder优化性能
+- 完整的 Unicode 字符支持（中文、emoji 等多字节字符）
 
 **参数:**
 - `cmdStr`: 要拆分的命令字符串
@@ -401,6 +402,10 @@ result := shellx.Split(`echo ""hello""`)
 // 未闭合引号（忽略错误）
 result := shellx.Split(`echo "hello world`)
 // 结果: ["echo", "hello world"]  // 忽略未闭合引号错误
+
+// Unicode 字符支持
+result := shellx.Split("echo 你好世界 🎉")
+// 结果: ["echo", "你好世界", "🎉"]
 
 // 跨平台换行符
 result := shellx.Split("echo \"line1\nline2\"")
@@ -462,6 +467,10 @@ if err != nil {
         fmt.Printf("未闭合的引号类型: %q\n", unclosedErr.QuoteType)
     }
 }
+
+// Unicode 字符支持
+result, err := shellx.SplitE("echo 你好世界 🎉")
+// 结果: ["echo", "你好世界", "🎉"], err: nil
 ```
 
 ---
