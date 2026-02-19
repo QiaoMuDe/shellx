@@ -5,23 +5,6 @@ import (
 	"unicode"
 )
 
-// shell特殊字符集合
-//
-// 包含常见的shell特殊字符，用于命令分隔、管道、重定向等操作
-var specialChars = map[rune]bool{
-	';': true, // 命令分隔符
-	'|': true, // 管道符
-	'>': true, // 重定向符
-	'<': true, // 重定向符
-	'&': true, // 后台运行/逻辑运算
-	'!': true, // 逻辑非
-	'`': true, // 命令替换
-	'*': true, // 通配符
-	'?': true, // 通配符
-	'#': true, // 注释符
-	'~': true, // 家目录
-}
-
 // splitState 命令拆分过程中的状态信息
 //
 // 封装了命令拆分过程中需要的所有状态变量，
@@ -73,13 +56,32 @@ func isQuote(ch rune) bool {
 
 // isSpecialChar 判断字符是否为shell特殊字符
 //
+// 支持的特殊字符:
+//   - ; : 命令分隔符
+//   - | : 管道符
+//   - > : 重定向符
+//   - < : 重定向符
+//   - & : 后台运行/逻辑运算
+//   - ! : 逻辑非
+//   - ` : 命令替换
+//   - * : 通配符
+//   - ? : 通配符
+//   - # : 注释符
+//   - ~ : 家目录
+//
 // 参数:
 //   - ch: 要判断的字符
 //
 // 返回值:
 //   - bool: 如果是特殊字符返回 true，否则返回 false
 func isSpecialChar(ch rune) bool {
-	return specialChars[ch]
+	switch ch {
+	case ';', '|', '>', '<', '&', '!', '`', '*', '?', '#', '~':
+		return true
+
+	default:
+		return false
+	}
 }
 
 // handleSpecialChar 处理特殊字符（分号、管道符等）的逻辑
