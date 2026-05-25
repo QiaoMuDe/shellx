@@ -84,6 +84,48 @@ func TestSplit(t *testing.T) {
 			expected: []string{"echo", `grep 'test' "file"`},
 		},
 
+		// Windows 路径场景
+		{
+			name:     "Windows 相对路径",
+			input:    `.\path\file.exe`,
+			expected: []string{`.\path\file.exe`},
+		},
+		{
+			name:     "Windows 绝对路径",
+			input:    `C:\Windows\System32\notepad.exe`,
+			expected: []string{`C:\Windows\System32\notepad.exe`},
+		},
+		{
+			name:     "Windows 路径作为参数",
+			input:    `copy .\source.txt .\dest\dst.txt`,
+			expected: []string{"copy", `.\source.txt`, `.\dest\dst.txt`},
+		},
+		{
+			name:     "Windows 路径带双引号",
+			input:    `del "C:\Program Files\app\file.dll"`,
+			expected: []string{"del", `C:\Program Files\app\file.dll`},
+		},
+		{
+			name:     "Windows 网络路径",
+			input:    `dir \\server\share\folder`,
+			expected: []string{"dir", `\\server\share\folder`},
+		},
+		{
+			name:     "Windows 路径与命令分隔符",
+			input:    `cd C:\temp && dir`,
+			expected: []string{"cd", `C:\temp`, "&&", "dir"},
+		},
+		{
+			name:     "PowerShell 路径参数带管道",
+			input:    `Get-ChildItem -Path "C:\Program Files" -Recurse`,
+			expected: []string{"Get-ChildItem", "-Path", `C:\Program Files`, "-Recurse"},
+		},
+		{
+			name:     "Windows 路径末尾反斜杠",
+			input:    `dir C:\temp\`,
+			expected: []string{"dir", `C:\temp\`},
+		},
+
 		// 空白字符场景
 		{
 			name:     "多个空格",

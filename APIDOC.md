@@ -343,14 +343,30 @@ func ExecT(timeout time.Duration, name string, args ...string) error
 func FindCmd(name string) (string, error)
 ```
 
-查找命令
+查找命令（增强版）
 
 **参数:**
 - `name`: 命令名称
 
 **返回:**
-- `string`: 命令路径
+- `string`: 命令的绝对路径
 - `error`: 错误信息
+
+---
+
+### FindCommandPath
+
+```go
+func FindCommandPath(name string) string
+```
+
+查找单个命令的绝对路径（便捷封装）
+
+**参数:**
+- `name`: 命令名称
+
+**返回:**
+- `string`: 命令的绝对路径，找不到则返回原命令名
 
 ---
 

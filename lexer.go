@@ -242,9 +242,15 @@ func splitInternal(cmdStr string) ([]string, error) {
 	for i := 0; i < len(runes); i++ {
 		currentRune := runes[i]
 
-		// 处理转义字符（统一处理，保持原样）
+		// 处理转义字符（仅在特殊字符前作为转义，Windows 路径分隔符不受影响）
 		if currentRune == '\\' && i+1 < len(runes) {
-			i = state.handleEscapeChar(runes, i) - 1
+			nextChar := runes[i+1]
+			if isQuote(nextChar) || isSpecialChar(nextChar) || unicode.IsSpace(nextChar) || nextChar == '\\' {
+				i = state.handleEscapeChar(runes, i) - 1
+				continue
+			}
+			// 普通字符（如 Windows 路径分隔符 \），直接写入反斜杠本身
+			state.builder.WriteRune('\\')
 			continue
 		}
 

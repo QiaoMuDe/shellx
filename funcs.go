@@ -1,8 +1,11 @@
 package shellx
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 )
 
@@ -58,14 +61,64 @@ func SplitE(cmdStr string) ([]string, error) {
 
 // FindCmd 查找命令
 //
+// 增强版，在标准库 exec.LookPath 基础上增加了以下能力：
+//   - 处理 Go 1.19+ 的 ErrDot 安全限制（当前目录程序）
+//   - 返回绝对路径
+//   - Windows 上检查可执行文件扩展名
+//
 // 参数:
 //   - name: 命令名称
 //
 // 返回:
-//   - string: 命令路径
+//   - string: 命令的绝对路径
 //   - error: 错误信息
 func FindCmd(name string) (string, error) {
-	return exec.LookPath(name)
+	// 优先使用标准库 exec.LookPath 查找
+	path, err := exec.LookPath(name)
+	if err == nil {
+		// 确保返回绝对路径
+		if filepath.IsAbs(path) {
+			return path, nil
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return "", err
+		}
+		return abs, nil
+	}
+
+	// 处理 Go 1.19+ 的 ErrDot 错误（当前目录的程序）
+	if errors.Is(err, exec.ErrDot) {
+		abs, err := filepath.Abs(name)
+		if err != nil {
+			return "", err
+		}
+		if isExecutable(abs) {
+			return abs, nil
+		}
+		return "", fmt.Errorf("command %q in current directory is not executable", name)
+	}
+
+	// 其他错误（命令未找到等）直接返回
+	return "", err
+}
+
+// FindCommandPath 查找单个命令的绝对路径
+//
+// 供其他包复用，只返回第一个匹配的路径
+// 优先使用标准库 exec.LookPath，处理 ErrDot 情况，找不到则返回原命令名
+//
+// 参数:
+//   - name: 命令名称
+//
+// 返回:
+//   - string: 命令的绝对路径，如果找不到则返回原命令名
+func FindCommandPath(name string) string {
+	path, err := FindCmd(name)
+	if err != nil {
+		return name
+	}
+	return path
 }
 
 // ########################################

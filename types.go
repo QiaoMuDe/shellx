@@ -16,7 +16,10 @@
 package shellx
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // ShellType 定义shell类型
@@ -107,4 +110,36 @@ func (s ShellType) shellFlags() string {
 	default:
 		return ""
 	}
+}
+
+// windowsExts 定义 Windows 可执行文件扩展名集合
+var windowsExts = map[string]bool{
+	".exe": true,
+	".bat": true,
+	".cmd": true,
+	".com": true,
+}
+
+// isExecutable 检查文件是否可执行
+//
+// 参数:
+//   - path: 文件路径
+//
+// 返回:
+//   - bool: 是否可执行
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	// Windows 上通过扩展名判断可执行性
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(path))
+		return windowsExts[ext] && !info.IsDir()
+	}
+
+	// Unix 类系统检查文件权限
+	mode := info.Mode()
+	return mode.IsRegular() && (mode.Perm()&0111 != 0)
 }
