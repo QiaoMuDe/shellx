@@ -106,17 +106,17 @@ func FindCmd(name string) (string, error) {
 // FindCommandPath 查找单个命令的绝对路径
 //
 // 供其他包复用，只返回第一个匹配的路径
-// 优先使用标准库 exec.LookPath，处理 ErrDot 情况，找不到则返回原命令名
+// 优先使用标准库 exec.LookPath，处理 ErrDot 情况，找不到则返回空字符串
 //
 // 参数:
 //   - name: 命令名称
 //
 // 返回:
-//   - string: 命令的绝对路径，如果找不到则返回原命令名
+//   - string: 命令的绝对路径，如果找不到则返回空字符串
 func FindCommandPath(name string) string {
 	path, err := FindCmd(name)
 	if err != nil {
-		return name
+		return ""
 	}
 	return path
 }

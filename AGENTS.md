@@ -122,7 +122,7 @@ shellx/                                    # 项目根目录
 | **延迟构建引擎** | 内部支撑 | 执行时才创建 exec.Cmd，支持上下文/超时 | [internal.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/internal.go) | Command 配置 | 就绪的 exec.Cmd 对象 |
 | **命令分词器** | 工具支撑 | 智能拆分 Shell 命令字符串（选择性转义，Windows 路径原生兼容） | [lexer.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/lexer.go) | 命令字符串 | 拆分后的参数切片 |
 | **错误分类引擎** | 基础支撑 | 统一错误判断与格式化 | [errors.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/errors.go) | 原始错误 + Command | 分类后的用户友好错误 |
-| **命令查找引擎** | 工具支撑 | 增强版命令路径查找（ErrDot 处理 + 绝对路径 + 可执行性校验） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令名称 | 绝对路径/错误/原命令名 |
+| **命令查找引擎** | 工具支撑 | 增强版命令路径查找（ErrDot 处理 + 绝对路径 + 可执行性校验） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令名称 | 绝对路径/错误/空字符串 |
 | **可执行性检测** | 工具支撑 | 跨平台可执行文件判断（Windows 扩展名 + Unix 权限位） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 文件路径 | 是否可执行 |
 | **便捷函数层** | 业务封装 | 21 个包的导出快捷执行/查找函数 | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令参数/字符串 + 可选超时 | 错误/输出字节流 |
 | **Shx 对象** | 业务核心 | 纯 Go Shell 执行对象 | [shx/types.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/types.go) | 命令字符串 | 错误/输出 |

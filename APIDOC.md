@@ -366,7 +366,7 @@ func FindCommandPath(name string) string
 - `name`: 命令名称
 
 **返回:**
-- `string`: 命令的绝对路径，找不到则返回原命令名
+- `string`: 命令的绝对路径，找不到则返回空字符串
 
 ---
 
