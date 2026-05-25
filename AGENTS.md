@@ -37,8 +37,8 @@ shellx/                                    # 项目根目录
 ├── types.go                               # ShellType 枚举定义（跨平台 Shell 类型管理）
 ├── command.go                             # [核心] Command 结构体 + 配置 + 执行 + 进程控制
 ├── internal.go                            # [内部] 延迟构建 exec.Cmd + 资源清理 + 辅助函数
-├── lexer.go                               # 命令字符串分词器（引号/转义/特殊字符处理）
-├── funcs.go                               # 便捷函数（Exec/ExecOut/ExecT 等 18 个导出函数）
+├── lexer.go                               # 命令字符串分词器（引号/选择性转义/特殊字符处理）
+├── funcs.go                               # 便捷函数 + 命令查找增强 + 工具函数（Exec/ExecOut/FindCmd/FindCommandPath 等 21 个导出函数）
 ├── errors.go                              # 错误类型定义 + judgeError 错误分类函数
 │
 ├── command_test.go                        # Command 单元测试（含并发安全测试）
@@ -120,9 +120,11 @@ shellx/                                    # 项目根目录
 | **ShellType 枚举** | 基础支撑 | 定义 8 种 Shell 类型，跨平台自动选择 | [types.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/types.go) | 操作系统类型 | Shell 类型字符串及其执行标志 |
 | **Command 对象** | 业务核心 | 命令的配置/构建/执行一体化对象 | [command.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/command.go) | 命令名+参数/字符串 | 错误/输出/进程控制接口 |
 | **延迟构建引擎** | 内部支撑 | 执行时才创建 exec.Cmd，支持上下文/超时 | [internal.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/internal.go) | Command 配置 | 就绪的 exec.Cmd 对象 |
-| **命令分词器** | 工具支撑 | 智能拆分 Shell 命令字符串 | [lexer.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/lexer.go) | 命令字符串 | 拆分后的参数切片 |
+| **命令分词器** | 工具支撑 | 智能拆分 Shell 命令字符串（选择性转义，Windows 路径原生兼容） | [lexer.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/lexer.go) | 命令字符串 | 拆分后的参数切片 |
 | **错误分类引擎** | 基础支撑 | 统一错误判断与格式化 | [errors.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/errors.go) | 原始错误 + Command | 分类后的用户友好错误 |
-| **便捷函数层** | 业务封装 | 18 个包的导出快捷执行函数 | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令参数/字符串 + 可选超时 | 错误/输出字节流 |
+| **命令查找引擎** | 工具支撑 | 增强版命令路径查找（ErrDot 处理 + 绝对路径 + 可执行性校验） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令名称 | 绝对路径/错误/原命令名 |
+| **可执行性检测** | 工具支撑 | 跨平台可执行文件判断（Windows 扩展名 + Unix 权限位） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 文件路径 | 是否可执行 |
+| **便捷函数层** | 业务封装 | 21 个包的导出快捷执行/查找函数 | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令参数/字符串 + 可选超时 | 错误/输出字节流 |
 | **Shx 对象** | 业务核心 | 纯 Go Shell 执行对象 | [shx/types.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/types.go) | 命令字符串 | 错误/输出 |
 | **Shx 执行引擎** | 业务核心 | mvdan.cc/sh 驱动的命令执行 | [shx/exec.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/exec.go) | Shx 配置 + 上下文 | 错误/合并输出 |
 | **Shx 错误处理** | 基础支撑 | ExitStatus 包装与错误分类 | [shx/errors.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/errors.go) | 原始错误 | 分类错误 |
@@ -338,7 +340,9 @@ splitInternal("git commit -m \"feat: add feature\"")
     │
     ├─ 逐字符遍历 rune 序列
     │   │
-    │   ├─ 遇到 '\\' + nextChar → 保持转义序列原样，跳过
+    │   ├─ 遇到 '\\' + nextChar → 选择性转义：
+    │   │   仅在 nextChar 为引号/特殊字符/空格/'\' 时作为转义
+    │   │   普通字符（如 Windows 路径 \p\f）直接写入反斜杠
     │   ├─ 遇到 '&' & nextChar='&' → 识别多字符操作符 "&&"
     │   ├─ 遇到 '"'/'`' → handleQuoteChar：切换引号状态
     │   │   ├─ 不在引号内 → 进入引号状态，记录引号类型
@@ -410,7 +414,7 @@ splitInternal("git commit -m \"feat: add feature\"")
 | 测试文件 | 测试内容 |
 |---------|---------|
 | `command_test.go` | Command 创建、配置、执行、超时、上下文、并发安全、进程控制 |
-| `funcs_test.go` | Split/SplitE 分词器测试（含引号/转义/特殊字符等丰富用例） |
+| `funcs_test.go` | Split/SplitE 分词器测试（含引号/转义/特殊字符/Windows 路径等丰富用例），模糊测试 FuzzSplit |
 | `shx/shx_test.go` | 构造函数、重复执行检测、getter 方法 |
 | `shx/exec_test.go` | Exec/ExecOutput/ExecContext 超时/取消测试 |
 | `shx/option_test.go` | WithDir/WithEnv/WithEnvs/WithTimeout 等配置方法 |
@@ -427,6 +431,7 @@ splitInternal("git commit -m \"feat: add feature\"")
 | **重复执行** | `atomic.CompareAndSwap` + `ErrAlreadyExecuted` | 优雅的错误返回而非 panic |
 | **超时/取消** | context 机制 + 语义错误 | 精确识别 DeadlineExceeded/Canceled |
 | **退出码** | `extractExitCode()` / `ExitStatus` | 退出码可从错误中提取，不丢失信息 |
+| **ErrDot 安全限制** | `FindCmd` 内部识别并处理 `exec.ErrDot` + `isExecutable` 校验 | 绕过 Go 1.19+ 当前目录执行安全限制 |
 | **配置后执行** | 执行前 panic（如 `WithDir` 已检查） | ❗ panic 在库代码中可能不够友好，但属于设计选择 |
 
 ### 6.5 扩展性评估
@@ -459,10 +464,12 @@ splitInternal("git commit -m \"feat: add feature\"")
 2. **零外部依赖（主包）**：主包仅依赖 Go 标准库，无第三方引入风险
 3. **延迟构建机制**：`buildExecCmd()` 在执行时才创建 `exec.Cmd`，精确控制超时计时起点
 4. **智能错误分类**：`judgeError` 精确识别超时/取消/命令未找到/退出码等不同错误场景
-5. **跨平台自适应**：`ShellDef1`/`ShellDef2` 根据 `runtime.GOOS` 自动选择 Windows/Linux 默认 Shell
-6. **链式调用 API**：完全流畅的链式 API 设计，与 Go 生态主流趋势一致
-7. **单次执行保护**：`atomic.Bool` 确保每个命令对象精准执行一次
-8. **完整测试覆盖**：双包均包含全面的表驱动测试与并发安全测试
+5. **选择性转义分词**：`\ ` 仅在特殊字符前作为转义，`C:\path\file` 路径中的反斜杠不受影响
+6. **ErrDot 安全处理**：`FindCmd` 识别 Go 1.19+ 的 `exec.ErrDot`，配合 `isExecutable` 跨平台校验
+7. **跨平台自适应**：`ShellDef1`/`ShellDef2` 根据 `runtime.GOOS` 自动选择 Windows/Linux 默认 Shell
+8. **链式调用 API**：完全流畅的链式 API 设计，与 Go 生态主流趋势一致
+9. **单次执行保护**：`atomic.Bool` 确保每个命令对象精准执行一次
+10. **完整测试覆盖**：双包均包含全面的表驱动测试、并发安全测试、模糊测试与 Windows 路径测试
 
 ### 7.2 待优化点
 
@@ -486,9 +493,9 @@ Go版本: 1.25.0
   │  ├─ types.go: ShellType 枚举 (8种)
   │  ├─ command.go: Command 结构体 (核心)
   │  ├─ internal.go: buildExecCmd 延迟构建
-  │  ├─ lexer.go: 命令分词器
+  │  ├─ lexer.go: 命令分词器 (选择性转义, Windows路径兼容)
   │  ├─ errors.go: judgeError 错误分类
-  │  └─ funcs.go: 18个便捷函数
+  │  └─ funcs.go: 21个导出函数 + FindCmd增强版 + FindCommandPath + windowsExts + isExecutable
   └─ shx (子包): mvdan.cc/sh/v3 实现, 纯Go跨平台
      ├─ types.go: Shx 结构体
      ├─ shx.go: 构造函数
@@ -532,7 +539,8 @@ func ExecCodeStr(cmdStr string) (int, error)
 // 工具函数
 func Split(cmdStr string) []string
 func SplitE(cmdStr string) ([]string, error)
-func FindCmd(name string) (string, error)
+func FindCmd(name string) (string, error)       // 增强版（ErrDot + 绝对路径 + 可执行性校验）
+func FindCommandPath(name string) string         // 便捷版（找不到返回空字符串）
 
 // ShellType 枚举
 const ShellSh, ShellBash, ShellPwsh, ShellPowerShell, ShellCmd, ShellNone, ShellDef1, ShellDef2
