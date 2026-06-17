@@ -1,6 +1,6 @@
 ---
 name: shellx-skill
-description: 为 Go 语言的 ShellX 库（gitee.com/MM-Q/shellx）生成 Shell 命令执行代码。当用户需要在 Go 中执行系统命令、调用子进程、获取命令输出/退出码、设置命令超时/取消、跨平台兼容执行 Shell 脚本、使用管道/重定向等 Shell 特性时使用此技能。覆盖主包 shellx（基于 os/exec，支持进程控制和异步执行）和子包 shx（基于 mvdan.cc/sh/v3 的纯 Go 实现，跨平台一致）。对于用户涉及"执行命令""运行程序""调用子进程""获取输出""设置超时"等表述时应主动使用此技能。
+description: 为 Go 语言的 ShellX 库（gitee.com/MM-Q/shellx）生成 Shell 命令执行代码。当用户需要在 Go 中执行系统命令、调用子进程、获取命令输出/退出码、设置命令超时/取消、跨平台兼容执行 Shell 脚本、执行 .sh 脚本文件、使用管道/重定向等 Shell 特性时使用此技能。覆盖主包 shellx（基于 os/exec，支持进程控制和异步执行）和子包 shx（基于 mvdan.cc/sh/v3 的纯 Go 实现，跨平台一致，支持 Bash 方言和脚本文件执行）。对于用户涉及"执行命令""运行程序""调用子进程""获取输出""设置超时"等表述时应主动使用此技能。
 ---
 
 # ShellX Skill
@@ -16,6 +16,7 @@ description: 为 Go 语言的 ShellX 库（gitee.com/MM-Q/shellx）生成 Shell 
 | Windows cmd 命令 | **shellx**（主包） | 支持 ShellCmd 类型 |
 | 跨平台一致性 | **shx**（子包） | pure Go，不依赖系统 shell |
 | 管道/重定向 | **shx**（子包） | mvdan.cc/sh 完整支持 |
+| 执行 `.sh` 脚本文件 | **shx**（子包） | 通过 NewScript/RunScript 原生支持 |
 | 零外部依赖要求 | **shellx**（主包） | 仅依赖 Go 标准库 |
 
 ## 主包 `shellx`
@@ -123,13 +124,14 @@ WithTimeout(d)    →  次优先级，ctx 为 nil 时生效
 
 ## 子包 `shx`
 
-基于 `mvdan.cc/sh/v3`，纯 Go 实现，跨平台行为一致。
+基于 `mvdan.cc/sh/v3`，纯 Go 实现，跨平台行为一致。默认使用 Bash 方言解析器（`syntax.LangBash`），支持 `[[ ]]`、`function`、`select` 等 Bash 特有语法。也支持直接执行 `.sh` 脚本文件。
 
 ### 创建与配置
 
 ```go
 import "gitee.com/MM-Q/shellx/shx"
 
+// 命令字符串
 cmd := shx.New("echo $VAR").
     WithDir("/tmp").
     WithTimeout(5 * time.Second).
@@ -139,6 +141,12 @@ cmd := shx.New("echo $VAR").
     WithStdout(&buf).
     WithStderr(&buf).
     WithContext(ctx)
+
+// 脚本文件
+cmd := shx.NewScript("deploy.sh").
+    WithDir("/app").
+    WithTimeout(30 * time.Second).
+    WithEnv("MODE", "production")
 ```
 
 ### 执行
@@ -153,13 +161,27 @@ output, err := cmd.ExecContextOutput(ctx)
 ### 便捷函数
 
 ```go
+// 命令字符串
 shx.Run("echo hello")
 shx.RunToTerminal("ls -la")
 shx.Out("date")
 shx.RunWith("sleep 10", 5*time.Second)
+shx.OutWith("sleep 5", 10*time.Second)
 shx.RunWithIO("cat", stdin, stdout, stderr)
+shx.OutWithIO("cat", stdin, stdout, stderr)
 shx.RunCtx(ctx, "echo")
 shx.OutCtx(ctx, "ls")
+
+// 脚本文件
+shx.RunScript("deploy.sh")
+shx.RunScriptToTerminal("build.sh")
+shx.OutScript("deploy.sh")
+shx.RunScriptWith("long_task.sh", 30*time.Second)
+shx.OutScriptWith("build.sh", 60*time.Second)
+shx.RunScriptWithIO("script.sh", stdin, stdout, stderr)
+shx.OutScriptWithIO("script.sh", stdin, stdout, stderr)
+shx.RunCtxScript(ctx, "long_task.sh")
+shx.OutCtxScript(ctx, "build.sh")
 ```
 
 ### 退出码判断

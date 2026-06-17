@@ -15,10 +15,10 @@
 //	import "gitee.com/MM-Q/shellx/shx"
 //
 //	// 简单执行
-//	err := shx.Exec("echo hello world")
+//	err := shx.Run("echo hello world")
 //
 //	// 获取输出
-//	output, err := shx.Output("ls -la")
+//	output, err := shx.Out("ls -la")
 //
 //	// 链式配置
 //	output, err := shx.New("echo hello").
@@ -52,8 +52,9 @@ import (
 // Shx 表示一个待执行的 shell 命令
 type Shx struct {
 	// 命令配置
-	raw    string         // 原始命令字符串
-	parser *syntax.Parser // 语法解析器 (可自定义)
+	raw        string         // 原始命令字符串
+	parser     *syntax.Parser // 语法解析器 (可自定义)
+	scriptFile string         // 脚本文件路径 (空=执行命令字符串, 非空=执行脚本文件)
 
 	// 执行环境
 	dir    string         // 工作目录

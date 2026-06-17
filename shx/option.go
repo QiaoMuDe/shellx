@@ -61,7 +61,7 @@ func (s *Shx) WithDir(dir string) *Shx {
 //
 // 注意:
 //   - 如果命令已经执行过, 会 panic
-//   - 如果 key 为空, 则忽略
+//   - 如果 key 为空, 会 panic
 func (s *Shx) WithEnv(key, value string) *Shx {
 	if s.executed.Load() {
 		panic("shx has already been executed")

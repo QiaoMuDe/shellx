@@ -1,0 +1,12 @@
+- [x] Shx 结构体包含 `scriptFile` 字段
+- [x] 所有现有构造函数（New、NewArgs、NewCmds、NewWithParser）的 parser 使用 `syntax.LangBash`
+- [x] NewScript 构造函数正确设置 `scriptFile` 字段，parser 使用 `syntax.LangBash`
+- [x] execWithContext 在 `scriptFile != ""` 时从文件解析，否则从字符串解析
+- [x] displayName() 在脚本模式下返回文件路径，字符串模式下返回 raw
+- [x] RunScript 便捷函数可执行脚本文件并返回 error
+- [x] OutScript 便捷函数可执行脚本文件并返回 ([]byte, error)
+- [x] 脚本文件不存在时返回有意义错误
+- [x] 空文件路径返回空命令错误
+- [x] NewScript 对象支持所有现有 WithXxx 链式配置
+- [x] 现有测试全部通过，无回归
+- [x] 新增测试覆盖：正常脚本执行、文件不存在、空路径、超时、链式配置场景

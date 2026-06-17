@@ -139,3 +139,37 @@ if code, ok := shx.IsExitStatus(err); ok {
     fmt.Printf("exit code: %d\n", code)
 }
 ```
+
+## 13. 执行脚本文件（shx）
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "gitee.com/MM-Q/shellx/shx"
+)
+
+func main() {
+    // 简单执行
+    err := shx.RunScript("deploy.sh")
+    if err != nil {
+        fmt.Println("Script failed:", err)
+    }
+
+    // 带超时
+    output, err := shx.OutScriptWith("build.sh", 60*time.Second)
+    if err != nil {
+        fmt.Println("Build timed out or failed:", err)
+    }
+    fmt.Println(string(output))
+
+    // 链式配置
+    output, err = shx.NewScript("test.sh").
+        WithDir("/project").
+        WithEnv("MODE", "ci").
+        WithTimeout(30 * time.Second).
+        ExecOutput()
+}
+```

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"mvdan.cc/sh/v3/interp"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 // Exec 执行命令 (阻塞)
@@ -132,18 +134,33 @@ func (s *Shx) buildContext() context.Context {
 // 返回:
 //   - error: 执行错误
 func (s *Shx) execWithContext(ctx context.Context) error {
-	// 检查空命令
-	if strings.TrimSpace(s.raw) == "" {
-		return fmt.Errorf("command cannot be empty")
-	}
-
 	// 确保在退出时调用 cancel 函数
 	if s.cancel != nil {
 		defer s.cancel()
 	}
 
-	// 解析命令
-	file, err := s.parser.Parse(bytes.NewReader([]byte(s.raw)), "")
+	// 分支: 从脚本文件解析 vs 从命令字符串解析
+	var file *syntax.File
+	var err error
+
+	if s.scriptFile != "" {
+		// 从脚本文件解析
+		f, openErr := os.Open(s.scriptFile)
+		if openErr != nil {
+			return fmt.Errorf("open script file failed: %w", openErr)
+		}
+		defer func() { _ = f.Close() }()
+		file, err = s.parser.Parse(f, s.scriptFile)
+
+	} else {
+		// 检查空命令
+		if strings.TrimSpace(s.raw) == "" {
+			return fmt.Errorf("command cannot be empty")
+		}
+		// 从命令字符串解析
+		file, err = s.parser.Parse(bytes.NewReader([]byte(s.raw)), "")
+	}
+
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
@@ -156,7 +173,15 @@ func (s *Shx) execWithContext(ctx context.Context) error {
 
 	// 执行命令
 	err = runner.Run(ctx, file)
-	return handleError(err, s.raw, s.timeout)
+	return handleError(err, s.displayName(), s.timeout)
+}
+
+// displayName 返回用于错误信息显示的标识
+func (s *Shx) displayName() string {
+	if s.scriptFile != "" {
+		return s.scriptFile
+	}
+	return s.raw
 }
 
 // buildRunner 构建执行器

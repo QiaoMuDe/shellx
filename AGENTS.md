@@ -38,7 +38,7 @@ shellx/                                    # 项目根目录
 ├── command.go                             # [核心] Command 结构体 + 配置 + 执行 + 进程控制
 ├── internal.go                            # [内部] 延迟构建 exec.Cmd + 资源清理 + 辅助函数
 ├── lexer.go                               # 命令字符串分词器（引号/选择性转义/特殊字符处理）
-├── funcs.go                               # 便捷函数 + 命令查找增强 + 工具函数（Exec/ExecOut/FindCmd/FindCommandPath 等 21 个导出函数）
+├── funcs.go                               # 便捷函数 + 命令查找增强 + 工具函数（Exec/ExecOut/FindCmd/FindCommandPath 等 14 个导出函数）
 ├── errors.go                              # 错误类型定义 + judgeError 错误分类函数
 │
 ├── command_test.go                        # Command 单元测试（含并发安全测试）
@@ -47,12 +47,13 @@ shellx/                                    # 项目根目录
 └── shx/                                   # 纯 Go 实现子包
     ├── APIDOC.md                          # 子包 API 文档
     ├── types.go                           # Shx 结构体 + ExitStatus 类型定义 + 包文档
-    ├── shx.go                             # 构造函数（New/NewArgs/NewCmds/NewWithParser）
-    ├── exec.go                            # 执行方法（Exec/ExecOutput/ExecContext）
-    ├── option.go                          # 配置方法（WithDir/WithEnv/WithTimeout/WithContext）
-    ├── funcs.go                           # 便捷函数（Run/Out/RunWith/OutCtx 等 10 个导出函数）
+    ├── shx.go                             # 构造函数（New/NewArgs/NewCmds/NewScript）
+    ├── exec.go                            # 执行方法（Exec/ExecOutput/ExecContext，含脚本文件解析分支）
+    ├── option.go                          # 配置方法（WithDir/WithEnv/WithEnvMap/WithEnvs/WithTimeout/WithContext/WithStdin/WithStdout/WithStderr）
+    ├── funcs.go                           # 便捷函数（Run/Out/RunWith/OutCtx 等 18 个导出函数）
     ├── errors.go                          # 错误类型 + handleError 函数 + IsExitStatus
     │
+    ├── script_test.go                     # 脚本文件执行测试（12 个用例）
     ├── types_test.go                      # Shx 初始值/链式配置测试
     ├── shx_test.go                        # 构造函数测试
     ├── exec_test.go                       # 执行方法测试（超时/上下文/重复执行）
@@ -124,9 +125,10 @@ shellx/                                    # 项目根目录
 | **错误分类引擎** | 基础支撑 | 统一错误判断与格式化 | [errors.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/errors.go) | 原始错误 + Command | 分类后的用户友好错误 |
 | **命令查找引擎** | 工具支撑 | 增强版命令路径查找（ErrDot 处理 + 绝对路径 + 可执行性校验） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令名称 | 绝对路径/错误/空字符串 |
 | **可执行性检测** | 工具支撑 | 跨平台可执行文件判断（Windows 扩展名 + Unix 权限位） | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 文件路径 | 是否可执行 |
-| **便捷函数层** | 业务封装 | 21 个包的导出快捷执行/查找函数 | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令参数/字符串 + 可选超时 | 错误/输出字节流 |
+| **便捷函数层** | 业务封装 | 14 个包的导出快捷执行/查找函数 | [funcs.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/funcs.go) | 命令参数/字符串 + 可选超时 | 错误/输出字节流 |
 | **Shx 对象** | 业务核心 | 纯 Go Shell 执行对象 | [shx/types.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/types.go) | 命令字符串 | 错误/输出 |
-| **Shx 执行引擎** | 业务核心 | mvdan.cc/sh 驱动的命令执行 | [shx/exec.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/exec.go) | Shx 配置 + 上下文 | 错误/合并输出 |
+| **Shx 执行引擎** | 业务核心 | mvdan.cc/sh 驱动的命令执行（支持命令字符串和脚本文件） | [shx/exec.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/exec.go) | Shx 配置 + 上下文 | 错误/合并输出 |
+| **Shx 脚本执行** | 业务扩展 | 从 `.sh` 脚本文件中读取并解析执行 Bash 脚本 | [shx/exec.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/exec.go) | 脚本文件路径 | 错误/合并输出 |
 | **Shx 错误处理** | 基础支撑 | ExitStatus 包装与错误分类 | [shx/errors.go](file:///d:/资源池/下水道/Dev/本地项目/shellx/shx/errors.go) | 原始错误 | 分类错误 |
 
 ### 3.3 模块依赖关系
@@ -218,7 +220,7 @@ graph TD
 |---------|---------|---------|
 | **Fluent Builder（流式构建器）** | `command.go` 中 `WithWorkDir().WithTimeout().WithEnv()` 等 | 链式配置 Command/Shx 对象 |
 | **Lazy Initialization（延迟初始化）** | `internal.go` 中 `buildExecCmd()` | exec.Cmd 在执行时才创建，确保超时计时精确 |
-| **Template Method（模板方法）** | `funcs.go` 中 `Exec/ExecStr/ExecOut/ExecOutT` 等 | 18 个便捷函数封装了 Command 的创建→配置→执行流程 |
+| **Template Method（模板方法）** | `funcs.go` 中 `Exec/ExecStr/ExecOut/ExecOutT` 等 | 10 个便捷函数封装了 Command 的创建→配置→执行流程 |
 | **Strategy（策略模式）** | `types.go` 中 ShellType 枚举 + `shellFlags()` | 根据 Shell 类型使用不同执行策略（cmd /c vs sh -c） |
 | **Error Wrapping（错误包装）** | `errors.go` 中 `judgeError()` 和 `shx/errors.go` 中 `handleError()` | 将底层错误包装为语义明确的用户友好错误 |
 | **Marker Interface（标记接口）** | `shx/types.go` 中 `ExitStatus` 结构体 | 标记并传递退出码错误 |
@@ -272,7 +274,7 @@ cmd.Exec()  ←─────── 触发执行
 shx.New("echo hello")
     │
     ├─ 创建 Shx 对象
-    ├─ parser = syntax.NewParser()   ── mvdan.cc/sh 语法解析器
+    ├─ parser = syntax.NewParser(syntax.Variant(syntax.LangBash))   ── Bash 方言解析器
     ├─ env = expand.ListEnviron()    ── 继承系统环境变量
     └─ dir = os.Getwd()              ── 当前工作目录
     │
@@ -292,7 +294,10 @@ cmd.Exec()
     │
     ├─ 3. execWithContext(ctx)
     │      │
-    │      ├─ parser.Parse()     ── 解析命令字符串为 AST
+    │      ├─ 判断 s.scriptFile != "" ?
+    │      │   ├─ 是 → os.Open(file) → parser.Parse(file)  ── 从文件解析 AST
+    │      │   └─ 否 → parser.Parse(cmdStr)                ── 从字符串解析 AST
+    │      │
     │      ├─ interp.New(opts)   ── 创建解释器 Runner
     │      │     ├─ interp.Env(s.env)
     │      │     ├─ interp.Dir(s.dir)
@@ -418,6 +423,7 @@ splitInternal("git commit -m \"feat: add feature\"")
 | `shx/shx_test.go` | 构造函数、重复执行检测、getter 方法 |
 | `shx/exec_test.go` | Exec/ExecOutput/ExecContext 超时/取消测试 |
 | `shx/option_test.go` | WithDir/WithEnv/WithEnvs/WithTimeout 等配置方法 |
+| `shx/script_test.go` | 脚本文件执行测试（正常执行、文件不存在、空路径、超时、WithDir、WithEnv、链式配置、重复执行、Bash 特有语法） |
 | `shx/funcs_test.go` | Run/Out/RunWith/OutWith 等便捷函数 |
 | `shx/types_test.go` | ExitStatus 初始值、链式配置 |
 | `shx/errors_test.go` | IsExitStatus 识别、handleError 分类 |
@@ -441,7 +447,7 @@ splitInternal("git commit -m \"feat: add feature\"")
 | **新增 Shell 类型** | ⭐⭐⭐⭐⭐ 只需在 ShellType 枚举中新增常量，实现 String()/shellFlags() 即可 |
 | **新增便捷函数** | ⭐⭐⭐⭐⭐ 模板方法模式，只需封装 Command 创建→配置→执行三步 |
 | **新增执行方式** | ⭐⭐⭐⭐ 在 Command 上新增方法即可，但需同步 internal.go 中的 buildExecCmd |
-| **自定义解析器** | ⭐⭐⭐⭐⭐ shx 子包已支持 `NewWithParser` 注入自定义解析器 |
+| **Bash 方言默认** | ⭐⭐⭐⭐⭐ shx 子包默认使用 Bash 方言解析器（`syntax.LangBash`），支持 `[[ ]]`、`function`、`select` 等 Bash 特有语法 |
 | **插件化扩展** | ⭐⭐⭐ 无插件机制，但可通过 Go 接口进一步抽象 |
 
 ### 6.6 性能关键点
@@ -462,14 +468,16 @@ splitInternal("git commit -m \"feat: add feature\"")
 
 1. **双实现路径设计**：主包 (`os/exec`) + 子包 (`mvdan.cc/sh`) 双轨制，用户按需选择
 2. **零外部依赖（主包）**：主包仅依赖 Go 标准库，无第三方引入风险
-3. **延迟构建机制**：`buildExecCmd()` 在执行时才创建 `exec.Cmd`，精确控制超时计时起点
-4. **智能错误分类**：`judgeError` 精确识别超时/取消/命令未找到/退出码等不同错误场景
-5. **选择性转义分词**：`\ ` 仅在特殊字符前作为转义，`C:\path\file` 路径中的反斜杠不受影响
-6. **ErrDot 安全处理**：`FindCmd` 识别 Go 1.19+ 的 `exec.ErrDot`，配合 `isExecutable` 跨平台校验
-7. **跨平台自适应**：`ShellDef1`/`ShellDef2` 根据 `runtime.GOOS` 自动选择 Windows/Linux 默认 Shell
-8. **链式调用 API**：完全流畅的链式 API 设计，与 Go 生态主流趋势一致
-9. **单次执行保护**：`atomic.Bool` 确保每个命令对象精准执行一次
-10. **完整测试覆盖**：双包均包含全面的表驱动测试、并发安全测试、模糊测试与 Windows 路径测试
+3. **Bash 方言解析**：shx 子包默认使用 `syntax.LangBash` 解析器，支持 `[[ ]]`、`function`、`select` 等 Bash 特有语法
+4. **脚本文件执行**：shx 子包支持直接执行 `.sh` 脚本文件，通过 `NewScript`/`RunScript`/`OutScript` 等 API 无缝集成
+5. **延迟构建机制**：`buildExecCmd()` 在执行时才创建 `exec.Cmd`，精确控制超时计时起点
+6. **智能错误分类**：`judgeError` 精确识别超时/取消/命令未找到/退出码等不同错误场景
+7. **选择性转义分词**：`\ ` 仅在特殊字符前作为转义，`C:\path\file` 路径中的反斜杠不受影响
+8. **ErrDot 安全处理**：`FindCmd` 识别 Go 1.19+ 的 `exec.ErrDot`，配合 `isExecutable` 跨平台校验
+9. **跨平台自适应**：`ShellDef1`/`ShellDef2` 根据 `runtime.GOOS` 自动选择 Windows/Linux 默认 Shell
+10. **链式调用 API**：完全流畅的链式 API 设计，与 Go 生态主流趋势一致
+11. **单次执行保护**：`atomic.Bool` 确保每个命令对象精准执行一次
+12. **完整测试覆盖**：双包均包含全面的表驱动测试、并发安全测试、模糊测试与 Windows 路径测试
 
 ### 7.2 待优化点
 
@@ -495,19 +503,20 @@ Go版本: 1.25.0
   │  ├─ internal.go: buildExecCmd 延迟构建
   │  ├─ lexer.go: 命令分词器 (选择性转义, Windows路径兼容)
   │  ├─ errors.go: judgeError 错误分类
-  │  └─ funcs.go: 21个导出函数 + FindCmd增强版 + FindCommandPath + windowsExts + isExecutable
+  │  └─ funcs.go: 14个导出函数 + FindCmd增强版 + FindCommandPath
   └─ shx (子包): mvdan.cc/sh/v3 实现, 纯Go跨平台
-     ├─ types.go: Shx 结构体
-     ├─ shx.go: 构造函数
-     ├─ exec.go: 执行引擎
+     ├─ types.go: Shx 结构体 (含 scriptFile 字段)
+     ├─ shx.go: 构造函数 (含 NewScript 脚本文件构造函数)
+     ├─ exec.go: 执行引擎 (字符串/文件双解析路径)
      ├─ option.go: 配置方法
      ├─ errors.go: handleError + IsExitStatus
-     └─ funcs.go: 10个便捷函数
+     └─ funcs.go: 18个便捷函数 (含 RunScript/OutScript 等脚本执行函数)
 
 设计模式: 流式构建器 | 延迟初始化 | 模板方法 | 策略模式 | 错误包装
 上下文优先级: WithContext > WithTimeout > context.Background
 执行保护: atomic.Bool 确保单次执行
 并发安全: 配置阶段非并发安全, 执行阶段并发安全
+默认解析器: syntax.LangBash (支持 Bash 特有语法)
 ```
 
 ---
@@ -553,9 +562,9 @@ const ShellSh, ShellBash, ShellPwsh, ShellPowerShell, ShellCmd, ShellNone, Shell
 func New(cmdStr string) *Shx
 func NewArgs(cmd string, args ...string) *Shx
 func NewCmds(cmds []string) *Shx
-func NewWithParser(cmdStr string, parser *syntax.Parser) *Shx
+func NewScript(filePath string) *Shx                     // 从脚本文件创建
 
-// 便捷执行函数
+// 便捷执行函数 - 命令字符串
 func Run(cmd string) error
 func RunToTerminal(cmd string) error
 func Out(cmd string) ([]byte, error)
@@ -565,6 +574,17 @@ func RunWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) error
 func OutWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error)
 func RunCtx(ctx context.Context, cmd string) error
 func OutCtx(ctx context.Context, cmd string) ([]byte, error)
+
+// 便捷执行函数 - 脚本文件
+func RunScript(filePath string) error                     // 执行脚本文件
+func RunScriptToTerminal(filePath string) error            // 执行脚本文件并输出到终端
+func OutScript(filePath string) ([]byte, error)            // 执行脚本文件并获取输出
+func RunScriptWith(filePath string, timeout time.Duration) error
+func OutScriptWith(filePath string, timeout time.Duration) ([]byte, error)
+func RunScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) error
+func OutScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error)
+func RunCtxScript(ctx context.Context, filePath string) error
+func OutCtxScript(ctx context.Context, filePath string) ([]byte, error)
 
 // 错误判断
 func IsExitStatus(err error) (uint8, bool)
@@ -579,6 +599,7 @@ func IsExitStatus(err error) (uint8, bool)
 | 需要 Windows cmd 命令 | 主包 | 支持 ShellCmd 类型 |
 | 需要跨平台一致行为 | 子包 | pure Go 实现，不依赖系统 shell |
 | 需要管道/重定向等 Shell 特性 | 子包 | mvdan.cc/sh 完整支持 Shell 语法 |
+| 需要执行 `.sh` 脚本文件 | 子包 | 通过 NewScript/RunScript 原生支持，直接解析脚本文件 |
 | 零外部依赖要求 | 主包 | 仅依赖 Go 标准库 |
 | 轻量级简单命令 | 主包 | 直接 os/exec，开销更小 |
 

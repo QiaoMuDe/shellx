@@ -18,6 +18,8 @@ Package shx 提供了基于 mvdan.cc/sh/v3 的纯 Go shell 命令执行功能。
 - 更好的跨平台一致性 (Windows/Linux/macOS 行为一致)
 - 链式调用 API, 支持流畅的方法链
 - 支持超时控制和上下文取消
+- 支持 Bash 方言 (默认使用 Bash 解析器, 支持 `[[ ]]`、`function` 等 Bash 特有语法)
+- 支持执行 `.sh` 脚本文件
 - 最小并发保护 (使用 atomic.Bool 防止重复执行)
 
 ### 基本用法
@@ -26,10 +28,10 @@ Package shx 提供了基于 mvdan.cc/sh/v3 的纯 Go shell 命令执行功能。
 import "gitee.com/MM-Q/shellx/shx"
 
 // 简单执行
-err := shx.Exec("echo hello world")
+err := shx.Run("echo hello world")
 
 // 获取输出
-output, err := shx.Output("ls -la")
+output, err := shx.Out("ls -la")
 
 // 链式配置
 output, err := shx.New("echo hello").
@@ -41,6 +43,10 @@ output, err := shx.New("echo hello").
 ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 defer cancel()
 err := shx.New("long-running-command").WithContext(ctx).Exec()
+
+// 执行 bash 脚本文件
+err := shx.RunScript("deploy.sh")
+output, err := shx.OutScript("build.sh")
 ```
 
 ### 注意事项
@@ -49,6 +55,7 @@ err := shx.New("long-running-command").WithContext(ctx).Exec()
 - 每个 Shx 对象只能执行一次, 重复执行会返回错误
 - mvdan/sh 是同步执行的, 不提供异步 API, 如需异步请使用 goroutine 包装
 - 不支持进程控制 (无 PID、Kill、Signal) , 只能通过 context 取消
+- 默认使用 Bash 方言解析（`syntax.LangBash`），支持 `[[ ]]`、`function`、`select` 等 Bash 特有语法
 
 ---
 
@@ -88,6 +95,223 @@ func IsExitStatus(err error) (uint8, bool)
 **返回：**
 - `uint8`: 退出码
 - `bool`: 是否是退出状态错误
+
+---
+### RunScript
+
+```go
+func RunScript(filePath string) error
+```
+
+执行 bash 脚本文件
+
+**参数：**
+- `filePath`: 脚本文件路径
+
+**返回：**
+- `error`: 执行错误
+
+**示例：**
+
+```go
+err := shx.RunScript("deploy.sh")
+```
+
+---
+
+### RunScriptToTerminal
+
+```go
+func RunScriptToTerminal(filePath string) error
+```
+
+执行 bash 脚本文件并输出到终端
+
+**参数：**
+- `filePath`: 脚本文件路径
+
+**返回：**
+- `error`: 执行错误
+
+**示例：**
+
+```go
+err := shx.RunScriptToTerminal("deploy.sh")
+```
+
+---
+
+### RunScriptWith
+
+```go
+func RunScriptWith(filePath string, timeout time.Duration) error
+```
+
+超时执行 bash 脚本文件
+
+**参数：**
+- `filePath`: 脚本文件路径
+- `timeout`: 超时时间
+
+**返回：**
+- `error`: 执行错误
+
+**示例：**
+
+```go
+err := shx.RunScriptWith("long_task.sh", 30*time.Second)
+```
+
+---
+
+### RunScriptWithIO
+
+```go
+func RunScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) error
+```
+
+使用自定义输入输出执行 bash 脚本文件
+
+**参数：**
+- `filePath`: 脚本文件路径
+- `stdin`: 标准输入
+- `stdout`: 标准输出
+- `stderr`: 标准错误
+
+**返回：**
+- `error`: 执行错误
+
+**示例：**
+
+```go
+var buf bytes.Buffer
+err := shx.RunScriptWithIO("script.sh", strings.NewReader("input"), &buf, os.Stderr)
+```
+
+---
+
+### RunCtxScript
+
+```go
+func RunCtxScript(ctx context.Context, filePath string) error
+```
+
+使用上下文执行 bash 脚本文件
+
+**参数：**
+- `ctx`: 上下文
+- `filePath`: 脚本文件路径
+
+**返回：**
+- `error`: 执行错误
+
+**示例：**
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+err := shx.RunCtxScript(ctx, "long_task.sh")
+```
+
+---
+
+### OutScript
+
+```go
+func OutScript(filePath string) ([]byte, error)
+```
+
+执行 bash 脚本文件并获取输出
+
+**参数：**
+- `filePath`: 脚本文件路径
+
+**返回：**
+- `[]byte`: 命令输出
+- `error`: 执行错误
+
+**示例：**
+
+```go
+output, err := shx.OutScript("deploy.sh")
+```
+
+---
+
+### OutScriptWith
+
+```go
+func OutScriptWith(filePath string, timeout time.Duration) ([]byte, error)
+```
+
+超时执行 bash 脚本文件并获取输出
+
+**参数：**
+- `filePath`: 脚本文件路径
+- `timeout`: 超时时间
+
+**返回：**
+- `[]byte`: 命令输出
+- `error`: 执行错误
+
+**示例：**
+
+```go
+output, err := shx.OutScriptWith("build.sh", 60*time.Second)
+```
+
+---
+
+### OutScriptWithIO
+
+```go
+func OutScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error)
+```
+
+使用自定义输入输出执行 bash 脚本文件并获取输出
+
+**参数：**
+- `filePath`: 脚本文件路径
+- `stdin`: 标准输入
+- `stdout`: 标准输出
+- `stderr`: 标准错误
+
+**返回：**
+- `[]byte`: 命令输出
+- `error`: 执行错误
+
+**示例：**
+
+```go
+var buf bytes.Buffer
+output, err := shx.OutScriptWithIO("script.sh", strings.NewReader("input"), &buf, os.Stderr)
+```
+
+---
+
+### OutCtxScript
+
+```go
+func OutCtxScript(ctx context.Context, filePath string) ([]byte, error)
+```
+
+使用上下文执行 bash 脚本文件并获取输出
+
+**参数：**
+- `ctx`: 上下文
+- `filePath`: 脚本文件路径
+
+**返回：**
+- `[]byte`: 命令输出
+- `error`: 执行错误
+
+**示例：**
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+output, err := shx.OutCtxScript(ctx, "build.sh")
+```
 
 ---
 
@@ -415,20 +639,30 @@ cmd := shx.NewCmds([]string{"echo", "hello", ">", "output.txt"})
 
 ---
 
-#### NewWithParser
+#### NewScript
 
 ```go
-func NewWithParser(cmdStr string, parser *syntax.Parser) *Shx
+func NewScript(filePath string) *Shx
 ```
 
-使用自定义解析器创建命令
+从 bash 脚本文件创建命令
 
 **参数:**
-- `cmdStr`: 命令字符串
-- `parser`: 自定义解析器
+- `filePath`: 脚本文件路径
 
 **返回:**
 - `*Shx`: 命令对象
+
+**示例:**
+
+```go
+cmd := shx.NewScript("deploy.sh")
+cmd := shx.NewScript("/path/to/script.sh")
+```
+
+**注意:**
+- 如果 filePath 为空, 会 panic
+- 支持链式调用所有 WithXxx 方法
 
 ---
 
@@ -606,7 +840,6 @@ func (s *Shx) WithContext(ctx context.Context) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
-- 如果 ctx 为 nil, 会 panic
 - 设置的上下文会完全覆盖 WithTimeout 设置的超时
 
 ---
@@ -648,7 +881,7 @@ func (s *Shx) WithEnv(key, value string) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
-- 如果 key 为空, 则忽略
+- 如果 key 为空, 会 panic
 
 ---
 
@@ -736,7 +969,6 @@ func (s *Shx) WithStderr(w io.Writer) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
-- 如果 w 为 nil, 会 panic
 
 ---
 
@@ -756,7 +988,6 @@ func (s *Shx) WithStdin(r io.Reader) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
-- 如果 r 为 nil, 会 panic
 
 ---
 
@@ -776,7 +1007,6 @@ func (s *Shx) WithStdout(w io.Writer) *Shx
 
 **注意:**
 - 如果命令已经执行过, 会 panic
-- 如果 w 为 nil, 会 panic
 
 ---
 

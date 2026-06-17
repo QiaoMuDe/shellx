@@ -128,6 +128,164 @@ func OutWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, e
 	return New(cmd).WithStdin(stdin).WithStdout(stdout).WithStderr(stderr).ExecOutput()
 }
 
+// RunScript 执行 bash 脚本文件
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	err := shx.RunScript("deploy.sh")
+func RunScript(filePath string) error {
+	return NewScript(filePath).Exec()
+}
+
+// RunScriptToTerminal 执行 bash 脚本文件并输出到终端
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	err := shx.RunScriptToTerminal("deploy.sh")
+func RunScriptToTerminal(filePath string) error {
+	return NewScript(filePath).
+		WithStdout(os.Stdout).
+		WithStderr(os.Stderr).
+		Exec()
+}
+
+// OutScript 执行 bash 脚本文件并获取输出
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//
+// 返回：
+//   - []byte: 命令输出
+//   - error: 执行错误
+//
+// 示例：
+//
+//	output, err := shx.OutScript("deploy.sh")
+func OutScript(filePath string) ([]byte, error) {
+	return NewScript(filePath).ExecOutput()
+}
+
+// RunScriptWith 超时执行 bash 脚本文件
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//   - timeout: 超时时间
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	err := shx.RunScriptWith("long_task.sh", 30*time.Second)
+func RunScriptWith(filePath string, timeout time.Duration) error {
+	return NewScript(filePath).WithTimeout(timeout).Exec()
+}
+
+// OutScriptWith 超时执行 bash 脚本文件并获取输出
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//   - timeout: 超时时间
+//
+// 返回：
+//   - []byte: 命令输出
+//   - error: 执行错误
+//
+// 示例：
+//
+//	output, err := shx.OutScriptWith("build.sh", 60*time.Second)
+func OutScriptWith(filePath string, timeout time.Duration) ([]byte, error) {
+	return NewScript(filePath).WithTimeout(timeout).ExecOutput()
+}
+
+// RunScriptWithIO 使用自定义输入输出执行 bash 脚本文件
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//   - stdin: 标准输入
+//   - stdout: 标准输出
+//   - stderr: 标准错误
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	var buf bytes.Buffer
+//	err := shx.RunScriptWithIO("script.sh", strings.NewReader("input"), &buf, os.Stderr)
+func RunScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) error {
+	return NewScript(filePath).WithStdin(stdin).WithStdout(stdout).WithStderr(stderr).Exec()
+}
+
+// OutScriptWithIO 使用自定义输入输出执行 bash 脚本文件并获取输出
+//
+// 参数：
+//   - filePath: 脚本文件路径
+//   - stdin: 标准输入
+//   - stdout: 标准输出
+//   - stderr: 标准错误
+//
+// 返回：
+//   - []byte: 命令输出
+//   - error: 执行错误
+//
+// 示例：
+//
+//	var buf bytes.Buffer
+//	output, err := shx.OutScriptWithIO("script.sh", strings.NewReader("input"), &buf, os.Stderr)
+func OutScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error) {
+	return NewScript(filePath).WithStdin(stdin).WithStdout(stdout).WithStderr(stderr).ExecOutput()
+}
+
+// RunCtxScript 使用上下文执行 bash 脚本文件
+//
+// 参数：
+//   - ctx: 上下文
+//   - filePath: 脚本文件路径
+//
+// 返回：
+//   - error: 执行错误
+//
+// 示例：
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+//	defer cancel()
+//	err := shx.RunCtxScript(ctx, "long_task.sh")
+func RunCtxScript(ctx context.Context, filePath string) error {
+	return NewScript(filePath).WithContext(ctx).Exec()
+}
+
+// OutCtxScript 使用上下文执行 bash 脚本文件并获取输出
+//
+// 参数：
+//   - ctx: 上下文
+//   - filePath: 脚本文件路径
+//
+// 返回：
+//   - []byte: 命令输出
+//   - error: 执行错误
+//
+// 示例：
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+//	defer cancel()
+//	output, err := shx.OutCtxScript(ctx, "build.sh")
+func OutCtxScript(ctx context.Context, filePath string) ([]byte, error) {
+	return NewScript(filePath).WithContext(ctx).ExecOutput()
+}
+
 // RunCtx 使用上下文执行
 //
 // 参数：

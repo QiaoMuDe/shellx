@@ -25,7 +25,7 @@ import (
 func New(cmdStr string) *Shx {
 	return &Shx{
 		raw:    cmdStr,
-		parser: syntax.NewParser(),
+		parser: syntax.NewParser(syntax.Variant(syntax.LangBash)),
 		env:    expand.ListEnviron(os.Environ()...),
 		dir:    mustGetwd(),
 	}
@@ -53,7 +53,7 @@ func NewArgs(cmd string, args ...string) *Shx {
 
 	return &Shx{
 		raw:    cmdStr,
-		parser: syntax.NewParser(),
+		parser: syntax.NewParser(syntax.Variant(syntax.LangBash)),
 		env:    expand.ListEnviron(os.Environ()...),
 		dir:    mustGetwd(),
 	}
@@ -77,29 +77,38 @@ func NewCmds(cmds []string) *Shx {
 
 	return &Shx{
 		raw:    cmdStr,
-		parser: syntax.NewParser(),
+		parser: syntax.NewParser(syntax.Variant(syntax.LangBash)),
 		env:    expand.ListEnviron(os.Environ()...),
 		dir:    mustGetwd(),
 	}
 }
 
-// NewWithParser 使用自定义解析器创建命令
+// NewScript 从 bash 脚本文件创建命令
 //
 // 参数:
-//   - cmdStr: 命令字符串
-//   - parser: 自定义解析器
+//   - filePath: 脚本文件路径
 //
 // 返回:
 //   - *Shx: 命令对象
-func NewWithParser(cmdStr string, parser *syntax.Parser) *Shx {
-	if parser == nil {
-		parser = syntax.NewParser()
+//
+// 示例:
+//
+//	cmd := shx.NewScript("deploy.sh")
+//	cmd := shx.NewScript("/path/to/script.sh")
+//
+// 注意:
+//   - 如果 filePath 为空, 会 panic
+func NewScript(filePath string) *Shx {
+	if filePath == "" {
+		panic("script file path must not be empty")
 	}
+
 	return &Shx{
-		raw:    cmdStr,
-		parser: parser,
-		env:    expand.ListEnviron(os.Environ()...),
-		dir:    mustGetwd(),
+		raw:        filePath,
+		parser:     syntax.NewParser(syntax.Variant(syntax.LangBash)),
+		scriptFile: filePath,
+		env:        expand.ListEnviron(os.Environ()...),
+		dir:        mustGetwd(),
 	}
 }
 

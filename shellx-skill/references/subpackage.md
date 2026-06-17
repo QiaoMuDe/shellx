@@ -29,11 +29,11 @@ func IsExitStatus(err error) (uint8, bool)
 func New(cmdStr string) *Shx                         // 从字符串创建
 func NewArgs(cmd string, args ...string) *Shx        // 命令+参数
 func NewCmds(cmds []string) *Shx                     // 从切片创建
-func NewWithParser(cmdStr string, p *syntax.Parser) *Shx // 自定义解析器
+func NewScript(filePath string) *Shx                 // 从 bash 脚本文件创建
 ```
 
 - `New` 是最常用的方式
-- `NewWithParser` 可注入自定义 `mvdan.cc/sh/v3` 解析器
+- `NewScript` 读取并执行 `.sh` 脚本文件，支持链式调用所有 `WithXxx` 方法
 
 ## 配置方法
 
@@ -72,6 +72,7 @@ func (s *Shx) IsExecuted() bool
 ## 便捷函数
 
 ```go
+// 命令字符串执行
 func Run(cmd string) error
 func RunToTerminal(cmd string) error
 func Out(cmd string) ([]byte, error)
@@ -81,6 +82,17 @@ func RunWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) error
 func OutWithIO(cmd string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error)
 func RunCtx(ctx context.Context, cmd string) error
 func OutCtx(ctx context.Context, cmd string) ([]byte, error)
+
+// 脚本文件执行
+func RunScript(filePath string) error                           // 执行脚本文件
+func RunScriptToTerminal(filePath string) error                 // 执行脚本文件并输出到终端
+func OutScript(filePath string) ([]byte, error)                 // 执行脚本文件并获取输出
+func RunScriptWith(filePath string, d time.Duration) error      // 超时执行脚本
+func OutScriptWith(filePath string, d time.Duration) ([]byte, error) // 超时执行并获取输出
+func RunScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) error
+func OutScriptWithIO(filePath string, stdin io.Reader, stdout, stderr io.Writer) ([]byte, error)
+func RunCtxScript(ctx context.Context, filePath string) error
+func OutCtxScript(ctx context.Context, filePath string) ([]byte, error)
 ```
 
 ## 错误类型
@@ -95,7 +107,9 @@ var ErrNilWriter       = errors.New("writer cannot be nil")
 ## 设计要点
 
 - 纯 Go 实现，基于 `mvdan.cc/sh/v3` 解析和执行
+- 默认使用 Bash 方言解析器（`syntax.LangBash`），支持 `[[ ]]`、`function`、`select` 等 Bash 特有语法
 - 执行流程：Parse → AST → interp.Runner → Run
+- 脚本文件执行：通过 `NewScript` 或便捷函数，自动从文件读取并解析执行
 - 跨平台一致性：Windows/Linux/macOS 行为一致
 - 上下文优先级：`WithContext` > `WithTimeout` > `context.Background()`
 - 不支持异步，mvdan/sh 本身是同步的

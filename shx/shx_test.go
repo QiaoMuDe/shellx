@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"mvdan.cc/sh/v3/syntax"
 )
 
 func TestNew(t *testing.T) {
@@ -16,18 +14,6 @@ func TestNew(t *testing.T) {
 	}
 
 	if cmd.Raw() != "echo hello" {
-		t.Fatalf("unexpected raw command: %s", cmd.Raw())
-	}
-}
-
-func TestNewWithParser(t *testing.T) {
-	parser := syntax.NewParser()
-	cmd := NewWithParser("echo world", parser)
-	if cmd == nil {
-		t.Fatal("NewWithParser returned nil")
-	}
-
-	if cmd.Raw() != "echo world" {
 		t.Fatalf("unexpected raw command: %s", cmd.Raw())
 	}
 }
